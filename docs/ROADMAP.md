@@ -1,0 +1,327 @@
+# Roadmap Técnico
+
+Plano de engenharia da Calçados Mariano. Este documento vem da auditoria do repositório e lista o que corrigir, em que ordem e como conferir o resultado.
+
+Cada item traz três campos. **Por quê** explica o problema. **Como** descreve a ação. **Pronto quando** define o critério de aceite.
+
+## Como ler as prioridades
+
+| Onda | Significado | Regra |
+| --- | --- | --- |
+| **P0** | Bloqueadores. O projeto não avança com segurança enquanto eles existem. | Faça antes de tudo. |
+| **P1** | Rede de segurança. Testes e integração contínua. | Faça depois do P0. |
+| **P2** | Refatoração, segurança e acabamento. | Faça depois do P1. |
+
+O P1 depende do P0. Sem esquema em SQL e sem `app` separado do `listen`, os testes não têm como rodar contra um banco limpo.
+
+---
+
+## Decisão de produto tomada
+
+**O objetivo do projeto é a gestão de estoque interna.** O time decidiu isso. A API é o núcleo do produto. O usuário é o dono da loja, não o cliente final.
+
+Esta decisão define o trabalho do item P2-1. A interface em `vitrine-frontend/` deixa de ser uma vitrine pública e vira o painel de administração do estoque.
+
+A decisão também resolve um conflito de modelo de dados que a auditoria encontrou. As duas metades pediam campos diferentes:
+
+| Campo | Tabela `produtos` | Interface atual | Decisão |
+| --- | --- | --- | --- |
+| `quantidade` | Existe | Não mostra | A interface passa a mostrar. É o dado central. |
+| `status_estoque` | Existe | Não mostra | A interface passa a mostrar. |
+| `numeracao` | Existe | Mostra como `tamanhos` | A interface passa a usar o nome da coluna. |
+| `preco` | Não existe | Mostra | Fora de escopo. O preço não é dado de estoque. |
+| `imagem_url` | Não existe | Mostra | Fora de escopo por enquanto. |
+
+A interface usa hoje as categorias `Masculino`, `Feminino` e `Esporte`. Elas não existem nos 13 registros reais, que usam `Sapato`, `Botina` e `Chuteira (campo e society)`. O painel de estoque precisa ler as categorias do banco, e não de uma lista fixa no código.
+
+### Decisão que continua pendente: o licenciamento
+
+O repositório não tem arquivo `LICENSE`. O campo `license` do `package.json` diz `ISC`, mas isso é um resto do `npm init`. O time decidiu **não** publicar uma licença por enquanto e tratar o repositório como privado.
+
+O motivo é concreto. O código traz dados reais da loja, entre eles os telefones das duas unidades em `vitrine-frontend/src/App.jsx`. O time precisa decidir o licenciamento antes de qualquer publicação. Sem licença explícita, ninguém tem permissão de uso, cópia ou distribuição.
+
+---
+
+## P0. Bloqueadores
+
+### P0-1. Corrigir a falha que derruba o servidor
+
+**Por quê.** `GET /produtos/buscar` sem o parâmetro `tipo` termina o processo do servidor com segmentation fault e código de saída 139. O time reproduziu a falha duas vezes em duas tentativas. `ProdutoModel.buscar` não tem ramo padrão, portanto `sql` fica com a string vazia e `db.all('')` faz o driver `sqlite3` falhar em código nativo. Qualquer pessoa com acesso à rede tira o serviço do ar com um único pedido, sem autenticação.
+
+Este é o item mais urgente do repositório.
+
+**Como.**
+1. Em `src/models/ProdutoModel.js`, adicione um ramo padrão em `buscar`. Chame o callback com um erro de validação quando `tipo` não for `nome`, `categoria` ou `numeracao`.
+2. Nunca chame `db.all` com uma consulta vazia.
+3. Em `src/controllers/ProdutoController.js`, traduza esse erro de validação para a resposta `400` com uma mensagem clara.
+4. Valide também a ausência de `termo`.
+
+**Pronto quando.**
+- `curl "http://localhost:3000/produtos/buscar?termo=41"` responde `400` e o servidor continua no ar.
+- `curl "http://localhost:3000/produtos/buscar?tipo=cor&termo=azul"` responde `400`.
+- `curl "http://localhost:3000/produtos/buscar?tipo=nome&termo=bota"` continua respondendo `200` com o resultado correto.
+
+### P0-2. Tirar o banco de dados do controle de versão
+
+**Por quê.** O arquivo `calcados_mariano.db` é binário e está rastreado no Git. O commit `dc33f17` se chama `Update calcados_mariano.db`. Cada mudança de dado gera um diff binário. Duas pessoas que editam o estoque ao mesmo tempo criam um conflito sem resolução possível. O padrão `*.db` não está em nenhum `.gitignore`.
+
+**Como.**
+1. Extraia o esquema para `db/schema.sql`.
+2. Extraia os 13 registros para `db/seed.sql`.
+3. Limpe os dados sujos na carga inicial. A categoria `'Tênis de Futsal\r\n'` e o status `'Em estoque '` têm espaços que quebram o filtro exato.
+4. Rode `git rm --cached calcados_mariano.db`.
+5. Adicione `*.db` ao `.gitignore` da raiz.
+6. Crie o script `npm run db:setup`, que cria o banco a partir dos dois arquivos SQL.
+
+**Pronto quando.**
+- Um clone novo do repositório não traz nenhum arquivo `.db`.
+- `npm run db:setup` cria um banco com 13 produtos.
+- `git status` fica limpo depois de o servidor gravar um produto novo.
+
+### P0-3. Corrigir os metadados do `package.json`
+
+**Por quê.** O campo `main` aponta para `index.js`, que não existe. O ponto de entrada é `server.js`. Não existe script `start`, portanto `npm start` falha. Os campos `repository`, `bugs` e `homepage` apontam para `henrique-ep/calcados-mariano`, e o repositório real é `RxSaturn/calcados-mariano`. Os campos `description`, `author` e `keywords` estão vazios.
+
+**Como.**
+1. Troque `main` para `server.js`.
+2. Adicione `"start": "node server.js"`.
+3. Adicione um script `dev` com recarga automática, por exemplo com `node --watch`.
+4. Preencha `description`, `author` e `keywords`.
+5. Corrija `repository`, `bugs` e `homepage` para o dono real.
+6. Adicione o campo `engines` com `"node": ">=20"`.
+
+**Pronto quando.** `npm start` sobe o servidor na porta 3000.
+
+### P0-4. Alinhar o `package.json` com a ausência de licença
+
+**Por quê.** O `package.json` declara `"license": "ISC"`, e o time não escolheu essa licença. O repositório não tem arquivo `LICENSE`. A declaração atual afirma uma permissão que ninguém concedeu, e isso engana quem clona o projeto.
+
+Este item não cria uma licença. Ele apenas para de declarar uma.
+
+**Como.**
+1. Troque o campo por `"license": "UNLICENSED"` e adicione `"private": true` no `package.json` da raiz.
+2. Registre no README que o projeto não tem licença. O trecho já está escrito.
+3. Confirme que o repositório no GitHub está marcado como privado.
+4. Antes de qualquer publicação, decida a licença e tire os dados reais da loja do código. Veja o item P2-6.
+
+**Pronto quando.**
+- O `package.json` não declara mais ISC.
+- O GitHub não mostra nenhuma licença na barra lateral, e o README explica o motivo.
+
+### P0-5. Criar uma rota de saúde de verdade
+
+**Por quê.** A rota `GET /` devolve texto puro e não olha o banco de dados. Ela responde `200` mesmo com o banco morto, portanto não serve para monitoramento e não serve como smoke test. O item P1-2 depende desta rota.
+
+**Como.**
+1. Crie `GET /health`. Rode uma consulta simples, por exemplo `SELECT 1`.
+2. Responda `200` com JSON quando o banco responder. Responda `503` quando ele falhar.
+3. Mova o registro da rota raiz para antes de `app.use('/', produtoRoutes)`, para deixar a ordem explícita.
+
+**Pronto quando.**
+- `GET /health` responde `200` com JSON quando o banco está bom.
+- `GET /health` responde `503` quando o caminho do banco é inválido.
+
+---
+
+## P1. Testes e integração contínua
+
+O pedido original pede foco em smoke tests. Esta onda começa por eles.
+
+### P1-1. Separar o `app` do `listen`
+
+**Por quê.** `server.js` cria o app e chama `app.listen` no mesmo arquivo. Nenhum teste consegue importar o app sem abrir a porta 3000. Este refactor é pré-requisito de todo teste de API.
+
+**Como.**
+1. Mova a montagem do Express para `src/app.js` e exporte o `app`.
+2. Deixe em `server.js` apenas o `require` do app e a chamada `app.listen`.
+
+**Pronto quando.** Um teste importa `src/app.js` e chama as rotas sem abrir porta. `node server.js` continua funcionando igual.
+
+### P1-2. Escrever os smoke tests do backend
+
+**Por quê.** O repositório não tem nenhum teste. `npm test` é o texto que o `npm init` gera e sai com código 1. Um smoke test responde a pergunta mais básica: o sistema sobe e atende.
+
+**Como.**
+1. Instale `vitest` e `supertest` como dependências de desenvolvimento.
+2. Troque o script `test` por `vitest run`.
+3. Crie `tests/smoke.test.js` com quatro casos:
+   - O app carrega sem lançar erro.
+   - `GET /health` responde `200`.
+   - `GET /produtos` responde `200` com um array.
+   - `GET /` responde `200`.
+4. Aponte os testes para um banco temporário criado com `db/schema.sql` e `db/seed.sql`.
+
+**Pronto quando.** `npm test` passa e sai com código 0.
+
+### P1-3. Escrever os testes de integração das rotas
+
+**Por quê.** As três rotas nunca foram testadas. O caso de regressão mais importante é o pedido que derrubava o servidor no item P0-1.
+
+**Como.** Cubra estes casos.
+
+| Rota | Caso | Esperado |
+| --- | --- | --- |
+| `GET /produtos` | Banco com carga inicial | `200`, 13 itens |
+| `GET /produtos/buscar` | `tipo=nome`, termo parcial | `200`, filtra |
+| `GET /produtos/buscar` | `tipo=categoria`, termo parcial | `200`, filtra |
+| `GET /produtos/buscar` | `tipo=numeracao`, termo exato | `200`, filtra |
+| `GET /produtos/buscar` | Sem `tipo` | `400`, servidor vivo |
+| `GET /produtos/buscar` | `tipo` inválido | `400`, servidor vivo |
+| `POST /produtos` | Corpo válido | `201`, grava a linha |
+| `POST /produtos` | Corpo vazio | `400` |
+
+**Pronto quando.** Os oito casos passam. O teste do caso sem `tipo` falha se alguém reverter a correção do item P0-1.
+
+### P1-4. Escrever os testes unitários do model
+
+**Por quê.** `ProdutoModel.buscar` tem quatro caminhos e três deles nunca foram exercitados de forma isolada.
+
+**Como.** Teste os quatro ramos de `buscar` direto no model, sem HTTP. Confira a consulta montada e o valor do parâmetro, inclusive os curingas `%` da busca parcial.
+
+**Pronto quando.** Os quatro ramos têm um teste cada.
+
+### P1-5. Escrever os smoke tests do frontend
+
+**Por quê.** `vitrine-frontend` não tem script `test`. O `App.jsx` tem 233 linhas e concentra toda a interface, portanto uma quebra passa sem aviso.
+
+O item P2-1 reescreve esta tela. Por isso, monte agora só a infraestrutura de teste e dois casos rasos. Não escreva testes detalhados de uma interface que vai sair. Os testes de comportamento entram junto com o painel de estoque.
+
+**Como.**
+1. Instale `vitest`, `@testing-library/react` e `jsdom` no pacote do frontend.
+2. Adicione o script `test`.
+3. Escreva dois casos: o `App` renderiza sem lançar erro, e a tela mostra a lista de produtos.
+
+**Pronto quando.** `npm test` passa dentro de `vitrine-frontend`.
+
+### P1-6. Criar a integração contínua
+
+**Por quê.** O repositório não tem a pasta `.github` e não tem nenhum arquivo YAML. Nada confere lint nem teste em um pull request.
+
+**Como.**
+1. Crie `.github/workflows/ci.yml`.
+2. Rode em duas versões de Node, 20 e 22.
+3. Execute os passos nas duas metades: `npm ci`, lint, `npm test`, e `npm run build` no frontend.
+4. Faça o trabalho falhar quando qualquer passo falhar.
+
+**Pronto quando.** Um pull request mostra a verificação da CI, e ela fica verde no estado corrigido.
+
+---
+
+## P2. Refatoração, segurança e acabamento
+
+### P2-1. Converter a interface em painel de estoque
+
+**Por quê.** `App.jsx` tem a constante `produtosMock` com 8 produtos inventados e fotos do Unsplash. O frontend não tem nenhum `fetch`, nenhum `useEffect` e nenhum `import.meta.env`. A API existe e ninguém a chama. O dono da loja não tem como usar o sistema, portanto esta é a maior lacuna funcional do projeto.
+
+A decisão de produto define o alvo: um painel de estoque, não uma vitrine. A tela precisa de reescrita, e não de uma ligação direta com a API. Os campos que ela mostra hoje são os campos errados.
+
+**Como.**
+1. Crie um módulo de cliente HTTP em `src/api/produtos.js`. Leia a URL base de `import.meta.env.VITE_API_URL`.
+2. Configure `server.proxy` no `vite.config.js` para o desenvolvimento local.
+3. Carregue o estoque da API com `useEffect`. Trate os quatro estados: carregando, erro, vazio e com dados.
+4. Troque a grade de cards por uma tabela de estoque. Mostre `nome`, `numeracao`, `categoria`, `quantidade` e `status_estoque`.
+5. Monte a lista de categorias do filtro a partir dos dados que a API devolve. Remova a lista fixa `Masculino`, `Feminino`, `Esporte`.
+6. Ligue o campo de busca à rota `GET /produtos/buscar`, com um seletor para o parâmetro `tipo`.
+7. Crie um formulário de cadastro que chama `POST /produtos`. Mostre os erros de validação que o item P2-2 passa a devolver.
+8. Destaque as linhas com quantidade baixa. Esse é o motivo de existir do sistema.
+9. Remova `produtosMock` e o modal de vitrine.
+
+**Pronto quando.**
+- O painel mostra os 13 produtos que vieram do banco.
+- O dono da loja cadastra um produto pela tela e ele aparece na lista.
+- A busca por numeração funciona pela API.
+- Nenhum dado de produto continua fixo no código.
+
+**Observação sobre o link do WhatsApp.** A tela atual traz um link `wa.me` para o cliente final. O painel de estoque não precisa dele. Guarde o componente antes de remover, porque uma vitrine pública pode voltar ao escopo depois.
+
+### P2-2. Proteger a rota de escrita
+
+**Por quê.** `POST /produtos` não valida a entrada e não pede autenticação. `adicionarProduto` repassa `req.body` direto ao model. O `cors()` sem opções aceita qualquer origem. Qualquer pessoa grava linhas arbitrárias na tabela.
+
+**Como.**
+1. Valide o corpo do pedido. Confira presença, tipo e limite de tamanho de cada campo.
+2. Responda `400` com a lista de erros quando a validação falhar.
+3. Restrinja o `cors()` a uma lista de origens conhecidas.
+4. Adicione autenticação na rota de escrita antes de qualquer publicação na internet.
+5. Adicione um limite de taxa de pedidos.
+
+**Pronto quando.** Um `POST` com corpo inválido responde `400`. Um `POST` sem credencial responde `401`. Uma origem desconhecida recebe bloqueio do CORS.
+
+### P2-3. Externalizar a configuração
+
+**Por quê.** `server.js` fixa `PORT = 3000` e não lê `process.env.PORT`. `src/config/db.js` abre `'./calcados_mariano.db'`, um caminho relativo à pasta atual, portanto o servidor só funciona quando alguém o inicia da raiz.
+
+**Como.**
+1. Leia a porta de `process.env.PORT`, com 3000 como valor padrão.
+2. Leia o caminho do banco de uma variável de ambiente. Resolva o padrão com `path.join(__dirname, ...)`.
+3. Crie `.env.example` com as variáveis e comentários.
+4. Feche as duas lacunas do `.gitignore`. A raiz não cobre `.env.production` nem `.env.development`. O `vitrine-frontend/.gitignore` não tem nenhuma entrada `.env`, e o Vite lê `.env` daquela pasta.
+
+**Pronto quando.** `PORT=4000 npm start` sobe na porta 4000. O servidor funciona quando alguém o inicia de outra pasta.
+
+### P2-4. Remover o código morto
+
+**Por quê.** Código morto engana quem lê o projeto. O `mysql2` sugere um banco MySQL que não existe.
+
+**Como.**
+1. Remova `mysql2` das dependências. Nenhum arquivo o importa.
+2. Remova `src/assets/hero.png`, `react.svg` e `vite.svg`. Nenhum arquivo os usa.
+3. Remova `src/index.css`, que está vazio, e o `import` dele em `main.jsx`. Ou preencha o arquivo com os estilos globais.
+4. Remova os `@types/react` e `@types/react-dom` enquanto o projeto não usar TypeScript.
+
+**Pronto quando.** `npm run build` e `npm run lint` continuam passando. O `git grep` não encontra referência a nenhum item removido.
+
+### P2-5. Padronizar o estilo de código
+
+**Por quê.** O ESLint só cobre `vitrine-frontend`. O backend não tem linter nenhum. Não há Prettier, `.editorconfig` nem `.nvmrc`. O estilo depende de quem escreveu o arquivo.
+
+**Como.**
+1. Adicione uma configuração de ESLint para o backend, com o ambiente `node` e CommonJS.
+2. Adicione o Prettier e uma configuração compartilhada.
+3. Crie `.editorconfig` e `.nvmrc`.
+4. Adicione o script `lint` na raiz.
+5. Adicione `husky` e `lint-staged` para rodar o linter antes do commit.
+
+**Pronto quando.** `npm run lint` passa nas duas metades. A CI roda o linter.
+
+### P2-6. Quebrar o `App.jsx` em componentes
+
+**Por quê.** `App.jsx` tem 233 linhas e concentra a barra de confiança, o cabeçalho, o filtro, a grade, o modal e o rodapé. Um arquivo assim dificulta o teste e o trabalho em paralelo.
+
+**Como.**
+1. Extraia os componentes do painel para `src/components/`: `Header`, `EstoqueTable`, `EstoqueRow`, `BuscaForm`, `ProdutoForm` e `Footer`.
+2. Tire os dados reais da loja do componente. Os telefones das duas unidades e o número de WhatsApp estão fixos em `App.jsx`. Mova o que sobrar para um módulo de configuração ou para variável de ambiente.
+3. Escreva um teste de renderização para cada componente novo.
+
+**Pronto quando.** `App.jsx` só monta a composição e o estado. Nenhum telefone da loja aparece dentro de um componente.
+
+### P2-7. Melhorar a higiene do repositório
+
+**Por quê.** Faltam arquivos que ajudam o time a trabalhar junto. Alguns detalhes de acabamento passam a impressão errada. O projeto tem três contribuidores e nenhum processo escrito.
+
+**Como.**
+1. Crie `CONTRIBUTING.md` com o processo de branch, commit e pull request.
+2. Crie `CHANGELOG.md` no formato Keep a Changelog.
+3. Crie os modelos de issue e de pull request em `.github/`.
+4. Ative o Dependabot. O `npm audit` do frontend aponta uma falha de severidade alta em `brace-expansion`.
+5. Troque `lang="en"` por `lang="pt-BR"` em `vitrine-frontend/index.html`. Troque o título `vitrine-frontend` pelo nome do sistema.
+6. Renomeie as custom properties do CSS. A variável `--vermelho-netshoes` leva o nome de um concorrente. Use `--vermelho-marca`.
+7. Renomeie a pasta `vitrine-frontend/` quando o item P2-1 terminar. O nome não descreve mais um painel de estoque.
+
+O `SECURITY.md` fica fora desta lista. Ele serve para receber relatos de falhas de fora do time, e o repositório continua privado.
+
+**Pronto quando.** O `index.html` declara português. Nenhum nome de concorrente aparece no código. O GitHub mostra os modelos de issue e de pull request.
+
+---
+
+## Resumo
+
+| Onda | Itens | Resultado |
+| --- | --- | --- |
+| **P0** | 5 | O serviço para de cair. O banco sai do Git. O projeto sobe com `npm start`. |
+| **P1** | 6 | Smoke tests, testes de integração e CI verde em cada pull request. |
+| **P2** | 7 | O dono da loja usa o sistema pela tela. A escrita fica protegida. O código fica limpo. |
+
+Comece pelo item P0-1. Ele corrige uma falha que qualquer pessoa dispara com um pedido HTTP.
+
+O item P2-1 é o que entrega valor ao dono da loja. Todos os itens antes dele existem para que ele seja seguro de fazer.
