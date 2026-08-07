@@ -17,7 +17,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                node: [20, 22]
+                node: [22, 24]
         steps:
             - uses: actions/checkout@v5
 
@@ -46,14 +46,29 @@ jobs:
 
             - name: Smoke test do servidor de verdade
               run: |
-                  npm start &
+                  set -euo pipefail
+
+                  # O trap garante que o servidor morre mesmo quando uma asserção falha.
+                  # Sem ele, o runner encerrava com "Terminate orphan process: npm start".
+                  node server.js & SERVIDOR=$!
+                  trap 'kill "$SERVIDOR" 2>/dev/null || true' EXIT
+
                   for i in $(seq 1 30); do
                     if curl -sf http://localhost:3000/health > /dev/null; then break; fi
                     sleep 1
                   done
+
                   curl -sf http://localhost:3000/health | tee /dev/stderr | grep -q '"status":"ok"'
-                  # A busca sem 'tipo' precisa responder 400 e o servidor continuar no ar.
+
+                  # A busca sem 'tipo' precisa responder 400, e o servidor continuar no ar.
+                  # Antes da correção do item P0-1, este pedido matava o processo.
                   test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:3000/produtos/buscar?termo=41')" = "400"
+
+                  # O POST sem corpo válido precisa responder 400.
+                  test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/produtos \
+                    -H 'Content-Type: application/json' -d '{}')" = "400"
+
+                  # O processo tem de estar vivo depois de tudo.
                   curl -sf http://localhost:3000/health > /dev/null
 
     frontend:
@@ -65,7 +80,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                node: [20, 22]
+                node: [22, 24]
         steps:
             - uses: actions/checkout@v5
 
