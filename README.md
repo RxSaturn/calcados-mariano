@@ -27,9 +27,11 @@ O núcleo do projeto é uma API REST que controla o estoque de calçados da loja
 
 ## Visão Geral
 
-A Calçados Mariano vende calçados em duas lojas físicas em Bambuí. A loja controla o estoque em planilha. A planilha não mostra o que falta em cada numeração e não serve a duas lojas ao mesmo tempo.
+A Calçados Mariano vende calçados em duas unidades em Bambuí, uma matriz e uma filial.
 
-Este repositório resolve esse problema. O objetivo é dar ao dono da loja um controle de estoque com dados confiáveis.
+Este repositório dá à loja um controle de estoque por software. O sistema registra cada calçado com a sua numeração, guarda a quantidade em estoque e permite buscar um produto por nome, categoria ou numeração.
+
+Este documento não descreve como a loja controla o estoque hoje. O time ainda não levantou essa informação.
 
 **API de estoque (`server.js` e `src/`). Este é o núcleo do produto.** Um servidor Express que expõe três rotas HTTP sobre a tabela `produtos`. A API lista o estoque, busca produtos por nome, categoria ou numeração, e cadastra um produto novo. Cada produto guarda numeração, quantidade e situação de estoque.
 
