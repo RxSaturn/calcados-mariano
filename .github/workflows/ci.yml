@@ -1,8 +1,11 @@
 name: CI
 
 on:
+    # Roda em qualquer branch, e não só na main. Sem isto, um push em branch de
+    # trabalho não acionava a CI, e o time só descobria a quebra ao abrir o pull
+    # request. Foi assim que a matriz de Node quebrada chegou até a main.
     push:
-        branches: [main]
+        branches: ['**']
     pull_request:
 
 # Cancela execuções antigas do mesmo branch quando um push novo chega.
