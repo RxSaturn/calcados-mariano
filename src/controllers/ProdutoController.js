@@ -14,10 +14,15 @@ const ProdutoController = {
     // 2. Função adicionar um novo calçado
     adicionarProduto: (req, res) => {
         // req.body guarda os dados que o site (front-end) envia quando o dono preenche o formulário
-        const novoProduto = req.body; 
-        
+        const novoProduto = req.body;
+
         ProdutoModel.adicionar(novoProduto, (erro) => {
             if (erro) {
+                // Pedido malformado do cliente. O model marca esses erros com 'validacao'
+                // e lista cada problema em 'erros', para o cliente corrigir tudo de uma vez.
+                if (erro.validacao) {
+                    return res.status(400).json({ mensagem: erro.message, erros: erro.erros });
+                }
                 return res.status(500).json({ mensagem: 'Erro ao salvar o produto no banco.' });
             }
             return res.status(201).json({ mensagem: 'Produto adicionado com sucesso!' });
@@ -32,6 +37,11 @@ const ProdutoController = {
 
         ProdutoModel.buscar(termo, tipo, (erro, resultados) => {
             if (erro) {
+                // Pedido malformado do cliente. O model marca esses erros com 'validacao'.
+                // Antes desta checagem, um pedido sem 'tipo' derrubava o servidor.
+                if (erro.validacao) {
+                    return res.status(400).json({ mensagem: erro.message });
+                }
                 return res.status(500).json({ mensagem: 'Erro ao pesquisar os produtos.' });
             }
             return res.status(200).json(resultados);

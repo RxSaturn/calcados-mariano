@@ -1,0 +1,328 @@
+/* Estilos do painel de estoque. */
+
+.painel {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Cabeçalho ---- */
+
+.painel-header {
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+  padding: 20px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.painel-header-titulo h1 {
+  font-size: 1.4rem;
+  letter-spacing: -0.01em;
+}
+
+.painel-header-titulo h1::first-letter {
+  color: var(--vermelho-marca);
+}
+
+.painel-header-titulo p {
+  color: var(--texto-fraco);
+  font-size: 0.9rem;
+}
+
+.painel-resumo {
+  display: flex;
+  gap: 12px;
+}
+
+.resumo-item {
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 10px 16px;
+  min-width: 104px;
+  text-align: center;
+}
+
+.resumo-item dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--texto-fraco);
+}
+
+.resumo-item dd {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.resumo-alerta {
+  background: var(--alerta-fundo);
+  border-color: var(--alerta-borda);
+}
+
+.resumo-alerta dd {
+  color: var(--alerta-texto);
+}
+
+/* ---- Conteúdo ---- */
+
+.painel-conteudo {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 24px;
+}
+
+.estoque-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.estoque-cabecalho h2,
+.cadastro h2 {
+  font-size: 1.1rem;
+}
+
+.filtro-ativo {
+  font-size: 0.85rem;
+  color: var(--texto-fraco);
+}
+
+/* ---- Formulários ---- */
+
+.busca-form,
+.cadastro-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--texto-fraco);
+}
+
+.campo-cresce {
+  flex: 1;
+  min-width: 180px;
+}
+
+.campo-curto input {
+  width: 120px;
+}
+
+.campo input,
+.campo select {
+  font: inherit;
+  font-size: 0.92rem;
+  color: var(--texto);
+  padding: 8px 10px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--superficie);
+  width: 100%;
+}
+
+.campo input:focus-visible,
+.campo select:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--vermelho-marca);
+  outline-offset: 2px;
+}
+
+.busca-acoes {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: var(--raio);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primario {
+  background: var(--vermelho-marca);
+  color: #fff;
+}
+
+.btn-primario:hover:not(:disabled) {
+  background: var(--vermelho-hover);
+}
+
+.btn-secundario {
+  background: var(--superficie);
+  color: var(--texto);
+  border-color: var(--borda);
+}
+
+.btn-secundario:hover {
+  background: var(--fundo);
+}
+
+/* ---- Tabela ---- */
+
+/* A tabela rola dentro do próprio contêiner, para a página não rolar na horizontal. */
+.tabela-wrapper {
+  overflow-x: auto;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.tabela-estoque {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.tabela-estoque th,
+.tabela-estoque td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--borda);
+  white-space: nowrap;
+}
+
+.tabela-estoque th {
+  background: var(--fundo);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--texto-fraco);
+}
+
+.tabela-estoque tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.celula-numero {
+  font-variant-numeric: tabular-nums;
+}
+
+.linha-estoque-baixo {
+  background: var(--alerta-fundo);
+}
+
+.linha-estoque-baixo td:first-child {
+  box-shadow: inset 3px 0 0 var(--vermelho-marca);
+}
+
+.etiqueta-baixo {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--vermelho-marca);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---- Avisos ---- */
+
+.aviso {
+  padding: 14px 16px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--superficie);
+  color: var(--texto-fraco);
+  font-size: 0.92rem;
+}
+
+.aviso-erro {
+  background: var(--alerta-fundo);
+  border-color: var(--alerta-borda);
+  color: var(--alerta-texto);
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+ul.aviso-erro {
+  padding-left: 34px;
+  list-style: disc;
+  justify-items: unset;
+}
+
+.aviso-sucesso {
+  background: var(--sucesso-fundo);
+  border-color: var(--sucesso-borda);
+  color: var(--sucesso-texto);
+}
+
+/* ---- Cadastro ---- */
+
+.cadastro {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 20px;
+}
+
+.cadastro h2 {
+  margin-bottom: 14px;
+}
+
+/* ---- Rodapé ---- */
+
+.painel-footer {
+  border-top: 1px solid var(--borda);
+  padding: 18px 24px;
+  color: var(--texto-fraco);
+  font-size: 0.85rem;
+  display: grid;
+  gap: 4px;
+}
+
+.footer-unidade {
+  margin-left: 16px;
+}
+
+.footer-nota {
+  font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .painel-header,
+  .painel-conteudo {
+    padding: 16px;
+  }
+
+  .campo-curto input {
+    width: 100%;
+  }
+
+  .footer-unidade {
+    display: block;
+    margin-left: 0;
+  }
+}
