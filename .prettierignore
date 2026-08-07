@@ -1,6 +1,6 @@
 node_modules
 package-lock.json
-vitrine-frontend/package-lock.json
-vitrine-frontend/dist
+painel-estoque/package-lock.json
+painel-estoque/dist
 coverage
 *.db

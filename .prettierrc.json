@@ -9,7 +9,7 @@
   "endOfLine": "lf",
   "overrides": [
     {
-      "files": ["vitrine-frontend/**/*.{js,jsx,css}", "*.json", "*.md"],
+      "files": ["painel-estoque/**/*.{js,jsx,css}", "*.json", "*.md"],
       "options": { "tabWidth": 2 }
     }
   ]

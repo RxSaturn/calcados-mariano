@@ -12,7 +12,7 @@ indent_size = 4
 [*.{json,md,yml,yaml}]
 indent_size = 2
 
-[vitrine-frontend/**.{js,jsx,css,html}]
+[painel-estoque/**.{js,jsx,css,html}]
 indent_size = 2
 
 [*.md]

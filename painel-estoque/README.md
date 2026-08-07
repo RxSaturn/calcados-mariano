@@ -1,4 +1,4 @@
-# vitrine-frontend
+# painel-estoque
 
 A interface web da Calçados Mariano. React 19 com Vite.
 
@@ -14,12 +14,12 @@ Instale as dependências antes do primeiro uso:
 npm install
 ```
 
-| Comando | O que faz |
-| --- | --- |
-| `npm run dev` | Sobe o servidor de desenvolvimento em `http://localhost:5173`. |
-| `npm run build` | Gera a versão de produção na pasta `dist/`. |
-| `npm run preview` | Serve a pasta `dist/` para conferência local. |
-| `npm run lint` | Roda o ESLint em todo o pacote. |
+| Comando           | O que faz                                                      |
+| ----------------- | -------------------------------------------------------------- |
+| `npm run dev`     | Sobe o servidor de desenvolvimento em `http://localhost:5173`. |
+| `npm run build`   | Gera a versão de produção na pasta `dist/`.                    |
+| `npm run preview` | Serve a pasta `dist/` para conferência local.                  |
+| `npm run lint`    | Roda o ESLint em todo o pacote.                                |
 
 Este pacote não chama o backend hoje. A lista de produtos é a constante `produtosMock` em `src/App.jsx`. Você roda a interface sem iniciar o servidor.
 
@@ -27,12 +27,12 @@ Os campos que a tela mostra hoje (`preco`, `imagem_url`, `tamanhos`) não existe
 
 ## Arquivos
 
-| Caminho | Conteúdo |
-| --- | --- |
-| `src/main.jsx` | Ponto de entrada. Monta o componente `App`. |
-| `src/App.jsx` | Toda a interface, em um componente. |
-| `src/App.css` | Estilos da vitrine. |
-| `vite.config.js` | Configuração do Vite. |
-| `eslint.config.js` | Regras do ESLint. |
+| Caminho            | Conteúdo                                    |
+| ------------------ | ------------------------------------------- |
+| `src/main.jsx`     | Ponto de entrada. Monta o componente `App`. |
+| `src/App.jsx`      | Toda a interface, em um componente.         |
+| `src/App.css`      | Estilos da vitrine.                         |
+| `vite.config.js`   | Configuração do Vite.                       |
+| `eslint.config.js` | Regras do ESLint.                           |
 
 O plano de refatoração deste pacote está em [`docs/ROADMAP.md`](../docs/ROADMAP.md).

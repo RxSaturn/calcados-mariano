@@ -2,11 +2,9 @@
 
 Sistema de gestão de estoque para a Calçados Mariano, loja de calçados de Bambuí, Minas Gerais.
 
-O núcleo do projeto é uma API REST que controla o estoque de calçados da loja em um banco SQLite. O repositório traz também uma interface web em React, que hoje mostra uma vitrine e no futuro vira a tela de administração desse estoque.
+O sistema tem duas partes que funcionam juntas. Uma API REST guarda o estoque em um banco SQLite. Um painel web em React lê e escreve por essa API.
 
-> **Estado atual do projeto**
->
-> A API funciona e responde. A interface web ainda não a consome. Ela mostra uma lista de produtos fixa no código, herdada de uma primeira versão em formato de vitrine. A conversão da interface em painel de estoque é o próximo passo do projeto. Veja [`docs/ROADMAP.md`](docs/ROADMAP.md).
+O dono da loja usa o painel para ver o estoque, buscar um calçado por nome, categoria ou numeração, cadastrar produto novo e enxergar de imediato o que está acabando.
 
 ---
 
@@ -35,7 +33,7 @@ Este documento não descreve como a loja controla o estoque hoje. O time ainda n
 
 **API de estoque (`server.js` e `src/`). Este é o núcleo do produto.** Um servidor Express que expõe três rotas HTTP sobre a tabela `produtos`. A API lista o estoque, busca produtos por nome, categoria ou numeração, e cadastra um produto novo. Cada produto guarda numeração, quantidade e situação de estoque.
 
-**Interface web (`vitrine-frontend/`).** Uma página única em React. Hoje ela mostra uma vitrine de calçados em cards, com um filtro por categoria e um link para o WhatsApp da loja. Esse formato veio da primeira versão do projeto. O roadmap converte essa página no painel de administração do estoque, que lê e escreve pela API.
+**Painel web (`painel-estoque/`).** Uma página única em React que consome a API. Ela mostra o estoque em tabela, com nome, categoria, numeração, quantidade e situação. As linhas com quantidade no limite ou abaixo recebem destaque, porque avisar sobre falta é o motivo de existir do sistema. A página traz também a busca e o formulário de cadastro.
 
 O usuário do sistema é o dono da loja, não o cliente final. O projeto não tem carrinho e não tem pagamento online. A venda continua no atendimento presencial.
 
@@ -45,24 +43,24 @@ O usuário do sistema é o dono da loja, não o cliente final. O projeto não te
 
 ### Backend
 
-| Item | Tecnologia | Versão |
-| --- | --- | --- |
-| Runtime | Node.js | 22.x (testado em 22.22.2) |
-| Framework web | Express | 5.2.1 |
-| Banco de dados | SQLite (via `sqlite3`) | 6.0.1 |
-| Middleware | `cors` | 2.8.6 |
-| Módulos | CommonJS (`require`) | n/a |
+| Item           | Tecnologia             | Versão                    |
+| -------------- | ---------------------- | ------------------------- |
+| Runtime        | Node.js                | 22.x (testado em 22.22.2) |
+| Framework web  | Express                | 5.2.1                     |
+| Banco de dados | SQLite (via `sqlite3`) | 6.0.1                     |
+| Middleware     | `cors`                 | 2.8.6                     |
+| Módulos        | CommonJS (`require`)   | n/a                       |
 
 ### Frontend
 
-| Item | Tecnologia | Versão |
-| --- | --- | --- |
-| Biblioteca de UI | React | 19.2.8 |
-| Build e dev server | Vite | 8.1.5 |
-| Plugin de build | `@vitejs/plugin-react` | 6.0.4 |
-| Linter | ESLint (flat config) | 10.8.0 |
-| Estilo | CSS puro com custom properties | n/a |
-| Módulos | ESM (`import`) | n/a |
+| Item               | Tecnologia                     | Versão |
+| ------------------ | ------------------------------ | ------ |
+| Biblioteca de UI   | React                          | 19.2.8 |
+| Build e dev server | Vite                           | 8.1.5  |
+| Plugin de build    | `@vitejs/plugin-react`         | 6.0.4  |
+| Linter             | ESLint (flat config)           | 10.8.0 |
+| Estilo             | CSS puro com custom properties | n/a    |
+| Módulos            | ESM (`import`)                 | n/a    |
 
 O projeto usa JavaScript em toda a base de código. Não há TypeScript.
 
@@ -111,7 +109,7 @@ O backend e o frontend são dois projetos npm separados. Cada um tem o seu próp
 4. Instale as dependências do frontend:
 
    ```bash
-   cd vitrine-frontend
+   cd painel-estoque
    npm install
    cd ..
    ```
@@ -120,10 +118,10 @@ O backend e o frontend são dois projetos npm separados. Cada um tem o seu próp
 
 O arquivo `calcados_mariano.db` **não** vem no repositório. O comando `npm run db:setup` o cria a partir de dois arquivos SQL versionados:
 
-| Arquivo | Conteúdo |
-| --- | --- |
-| `db/schema.sql` | A estrutura da tabela `produtos` e os índices. |
-| `db/seed.sql` | Treze calçados de exemplo, para o banco não nascer vazio. |
+| Arquivo         | Conteúdo                                                  |
+| --------------- | --------------------------------------------------------- |
+| `db/schema.sql` | A estrutura da tabela `produtos` e os índices.            |
+| `db/seed.sql`   | Treze calçados de exemplo, para o banco não nascer vazio. |
 
 O comando não apaga dados. Quando a tabela já tem produtos, ele avisa e não altera nada. Para recarregar os dados de exemplo e descartar o que existe, use `npm run db:setup -- --reset`.
 
@@ -161,21 +159,21 @@ Para parar o servidor, pressione `Ctrl+C`.
 
 ### Comandos do backend
 
-| Comando | O que faz |
-| --- | --- |
-| `npm start` | Sobe o servidor na porta 3000. |
-| `npm run dev` | Sobe o servidor e o reinicia quando um arquivo muda. |
-| `npm run db:setup` | Cria o banco a partir de `db/schema.sql` e `db/seed.sql`. |
-| `npm run db:setup -- --reset` | Recarrega os dados de exemplo e descarta os atuais. |
+| Comando                       | O que faz                                                 |
+| ----------------------------- | --------------------------------------------------------- |
+| `npm start`                   | Sobe o servidor na porta 3000.                            |
+| `npm run dev`                 | Sobe o servidor e o reinicia quando um arquivo muda.      |
+| `npm run db:setup`            | Cria o banco a partir de `db/schema.sql` e `db/seed.sql`. |
+| `npm run db:setup -- --reset` | Recarrega os dados de exemplo e descarta os atuais.       |
 
-> **Atenção:** execute os comandos sempre a partir da raiz do projeto. O caminho do banco é relativo à pasta atual, portanto o servidor não encontra o banco se você o iniciar de outro lugar. O item P2-3 do roadmap corrige isso.
+As variáveis de ambiente ficam documentadas em `.env.example`. Copie o arquivo para `.env` e ajuste o que precisar. A variável `PORT` muda a porta, e `DB_PATH` muda o caminho do banco.
 
 ### Frontend
 
 Em um segundo terminal, execute:
 
 ```bash
-cd vitrine-frontend
+cd painel-estoque
 npm run dev
 ```
 
@@ -183,14 +181,14 @@ O Vite serve a interface em `http://localhost:5173`. O terminal mostra a URL exa
 
 ### Outros comandos do frontend
 
-| Comando | O que faz |
-| --- | --- |
-| `npm run dev` | Sobe o servidor de desenvolvimento com recarga automática. |
-| `npm run build` | Gera a versão de produção na pasta `dist/`. |
-| `npm run preview` | Serve a pasta `dist/` para conferência local. |
-| `npm run lint` | Roda o ESLint em todo o frontend. |
+| Comando           | O que faz                                                  |
+| ----------------- | ---------------------------------------------------------- |
+| `npm run dev`     | Sobe o servidor de desenvolvimento com recarga automática. |
+| `npm run build`   | Gera a versão de produção na pasta `dist/`.                |
+| `npm run preview` | Serve a pasta `dist/` para conferência local.              |
+| `npm run lint`    | Roda o ESLint em todo o frontend.                          |
 
-O frontend não depende do backend hoje. Você pode abrir a interface sem iniciar o servidor.
+O painel depende da API. Suba o backend antes, porque a tela carrega o estoque da rota `GET /produtos`. Em desenvolvimento, o `vite.config.js` encaminha as chamadas para a porta 3000, portanto o navegador fala só com a origem do Vite e o CORS não entra no caminho.
 
 ---
 
@@ -227,13 +225,17 @@ curl http://localhost:3000/health
 Quando o banco não responde:
 
 ```json
-{ "status": "indisponivel", "banco": "sem resposta", "mensagem": "SQLITE_ERROR: no such table: produtos" }
+{
+  "status": "indisponivel",
+  "banco": "sem resposta",
+  "mensagem": "SQLITE_ERROR: no such table: produtos"
+}
 ```
 
-| Resposta | Quando |
-| --- | --- |
-| `200` | O banco respondeu. O campo `produtos` traz a contagem de linhas. |
-| `503` | O banco não respondeu, ou a tabela `produtos` não existe. |
+| Resposta | Quando                                                           |
+| -------- | ---------------------------------------------------------------- |
+| `200`    | O banco respondeu. O campo `produtos` traz a contagem de linhas. |
+| `503`    | O banco não respondeu, ou a tabela `produtos` não existe.        |
 
 A verificação consulta a tabela `produtos` de propósito. Uma consulta como `SELECT 1` provaria só que a conexão abriu. O driver `sqlite3` cria um arquivo vazio quando o banco não existe, portanto `SELECT 1` passaria em um clone onde ninguém rodou `npm run db:setup`.
 
@@ -262,19 +264,19 @@ curl http://localhost:3000/produtos
 ]
 ```
 
-| Resposta | Quando |
-| --- | --- |
-| `200` | A consulta funcionou. O corpo traz um array de produtos. |
-| `500` | O banco de dados falhou. |
+| Resposta | Quando                                                   |
+| -------- | -------------------------------------------------------- |
+| `200`    | A consulta funcionou. O corpo traz um array de produtos. |
+| `500`    | O banco de dados falhou.                                 |
 
 ### `GET /produtos/buscar`
 
 Busca produtos por um campo. A rota exige dois parâmetros de query.
 
-| Parâmetro | Obrigatório | Valores aceitos | O que faz |
-| --- | --- | --- | --- |
-| `tipo` | Sim | `nome`, `categoria`, `numeracao` | Escolhe a coluna da busca. |
-| `termo` | Sim | Texto livre | O valor procurado. Busca parcial para `nome` e `categoria`. Busca exata para `numeracao`. |
+| Parâmetro | Obrigatório | Valores aceitos                  | O que faz                                                                                 |
+| --------- | ----------- | -------------------------------- | ----------------------------------------------------------------------------------------- |
+| `tipo`    | Sim         | `nome`, `categoria`, `numeracao` | Escolhe a coluna da busca.                                                                |
+| `termo`   | Sim         | Texto livre                      | O valor procurado. Busca parcial para `nome` e `categoria`. Busca exata para `numeracao`. |
 
 ```bash
 curl "http://localhost:3000/produtos/buscar?tipo=nome&termo=bota"
@@ -300,14 +302,16 @@ curl "http://localhost:3000/produtos/buscar?termo=41"
 ```
 
 ```json
-{ "mensagem": "O parâmetro \"tipo\" é obrigatório e precisa ser um destes: nome, categoria, numeracao." }
+{
+  "mensagem": "O parâmetro \"tipo\" é obrigatório e precisa ser um destes: nome, categoria, numeracao."
+}
 ```
 
-| Resposta | Quando |
-| --- | --- |
-| `200` | A busca funcionou. O corpo traz um array, que pode vir vazio. |
-| `400` | O pedido não trouxe `tipo`, ou trouxe um `tipo` fora da lista, ou não trouxe `termo`. |
-| `500` | O banco de dados falhou. |
+| Resposta | Quando                                                                                |
+| -------- | ------------------------------------------------------------------------------------- |
+| `200`    | A busca funcionou. O corpo traz um array, que pode vir vazio.                         |
+| `400`    | O pedido não trouxe `tipo`, ou trouxe um `tipo` fora da lista, ou não trouxe `termo`. |
+| `500`    | O banco de dados falhou.                                                              |
 
 > **Histórico.** Até a correção do item P0-1, um pedido sem `tipo` derrubava o processo do servidor com segmentation fault e código de saída 139. O modelo montava uma consulta SQL vazia e o driver `sqlite3` falhava em código nativo. A rota agora valida os dois parâmetros antes de chegar ao banco.
 
@@ -331,18 +335,18 @@ curl -X POST http://localhost:3000/produtos \
 { "mensagem": "Produto adicionado com sucesso!" }
 ```
 
-| Campo | Tipo | Coluna |
-| --- | --- | --- |
-| `nome` | texto | `nome` |
-| `categoria` | texto | `categoria` |
-| `quantidade` | número | `quantidade` |
-| `status_estoque` | texto | `status_estoque` |
-| `numeracao` | texto | `numeracao` |
+| Campo            | Tipo   | Coluna           |
+| ---------------- | ------ | ---------------- |
+| `nome`           | texto  | `nome`           |
+| `categoria`      | texto  | `categoria`      |
+| `quantidade`     | número | `quantidade`     |
+| `status_estoque` | texto  | `status_estoque` |
+| `numeracao`      | texto  | `numeracao`      |
 
-| Resposta | Quando |
-| --- | --- |
-| `201` | O servidor gravou o produto. |
-| `500` | A gravação falhou. |
+| Resposta | Quando                       |
+| -------- | ---------------------------- |
+| `201`    | O servidor gravou o produto. |
+| `500`    | A gravação falhou.           |
 
 > **Atenção:** esta rota não valida a entrada e não pede autenticação. O CORS aceita qualquer origem. Qualquer pessoa com acesso à rede grava linhas na tabela. Não exponha este servidor na internet no estado atual.
 
@@ -370,73 +374,51 @@ A rota `POST /produtos` grava cinco das dez colunas. As colunas `subcategoria`, 
 
 ## Execução de Testes
 
-**O projeto não tem testes automatizados.** Não existe nenhum arquivo de teste no repositório e nenhum framework de teste nas dependências.
+O projeto tem **46 testes automatizados**: 34 no backend e 12 no painel.
 
-O comando de teste do backend ainda é o texto que o `npm init` gera. Ele falha de propósito:
+### Backend
 
 ```bash
-npm test
-# Error: no test specified
-# exit code 1
+npm test          # roda uma vez
+npm run test:watch
 ```
 
-O frontend não define um script `test`.
+| Arquivo                      | O que cobre                                                   |
+| ---------------------------- | ------------------------------------------------------------- |
+| `tests/smoke.test.js`        | O app carrega, `/health` responde, `/produtos` devolve array. |
+| `tests/produtos.test.js`     | As três rotas pela camada HTTP, com os casos de erro.         |
+| `tests/produtoModel.test.js` | Os quatro caminhos de `buscar` e a validação de `adicionar`.  |
 
-Enquanto os testes não existem, use estas verificações manuais.
+Cada arquivo de teste cria o seu próprio banco temporário, a partir dos mesmos `db/schema.sql` e `db/seed.sql` que o `npm run db:setup` usa. Nenhum teste toca o banco de desenvolvimento.
 
-1. Crie o banco e inicie o backend:
+### Painel
 
-   ```bash
-   npm run db:setup
-   npm start
-   ```
+```bash
+cd painel-estoque
+npm test
+```
 
-2. Confirme que o servidor e o banco respondem:
+Os testes do painel substituem o módulo da API por mocks. Eles conferem a tela: a tabela renderiza, o destaque de estoque baixo aparece na linha certa, a busca chama a API com o tipo e o termo escolhidos, e os erros de validação da API aparecem na tela.
 
-   ```bash
-   curl -s http://localhost:3000/health
-   # {"status":"ok","banco":"conectado","produtos":13}
-   ```
+### Verificações da integração contínua
 
-3. Confirme que a listagem devolve um array com 13 produtos:
+O arquivo `.github/workflows/ci.yml` roda tudo no Node 20 e 22, a cada push na `main` e a cada pull request.
 
-   ```bash
-   curl -s http://localhost:3000/produtos | head -c 200
-   ```
+| Onde   | Comandos                                                               |
+| ------ | ---------------------------------------------------------------------- |
+| Raiz   | `npm run lint`, `npm run format:check`, `npm run db:setup`, `npm test` |
+| Raiz   | Um smoke test contra o servidor de verdade, com `curl`                 |
+| Painel | `npm run lint`, `npm test`, `npm run build`                            |
 
-4. Confirme que a busca filtra:
-
-   ```bash
-   curl -s "http://localhost:3000/produtos/buscar?tipo=nome&termo=bota"
-   ```
-
-5. Confirme que a busca incompleta responde `400` e o servidor continua no ar:
-
-   ```bash
-   curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3000/produtos/buscar?termo=41"
-   # 400
-   curl -s http://localhost:3000/health
-   # o servidor precisa continuar respondendo
-   ```
-
-6. Confirme que o frontend passa no linter e compila:
-
-   ```bash
-   cd vitrine-frontend
-   npm run lint
-   npm run build
-   ```
-
-O plano de testes automatizados está em [`docs/ROADMAP.md`](docs/ROADMAP.md), na onda P1. Ele começa por smoke tests com Vitest e Supertest.
-
----
+Rode os mesmos comandos antes de abrir um pull request. Veja o [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Estrutura de Diretórios
 
 ```
 calcados-mariano/
-├── server.js                       # Entrada do backend. Só abre a porta 3000.
+├── server.js                       # Entrada do backend. Só abre a porta.
 ├── package.json                    # Dependências, scripts e metadados do backend.
+├── .env.example                    # Variáveis de ambiente, com o valor padrão de cada uma.
 │                                   # (calcados_mariano.db não é versionado. Rode npm run db:setup.)
 │
 ├── db/                             # Definição do banco de dados.
@@ -447,7 +429,7 @@ calcados-mariano/
 ├── src/                            # Código do backend, separado por camada.
 │   ├── app.js                      # Monta o Express, os middlewares e as rotas. Não abre porta.
 │   ├── config/
-│   │   └── db.js                   # Abre a conexão SQLite e a exporta.
+│   │   └── db.js                   # Abre a conexão SQLite. Lê DB_PATH.
 │   ├── routes/
 │   │   ├── healthRoutes.js         # Declara a rota GET /health.
 │   │   └── produtoRoutes.js        # Declara as três rotas de produto.
@@ -456,20 +438,35 @@ calcados-mariano/
 │   │   └── ProdutoController.js    # Trata requisição e resposta HTTP. Define os status.
 │   └── models/
 │       ├── HealthModel.js          # Consulta a tabela para provar que o banco responde.
-│       └── ProdutoModel.js         # Monta e executa as consultas SQL.
+│       └── ProdutoModel.js         # Monta as consultas SQL e valida a entrada.
 │
-├── vitrine-frontend/               # Projeto npm separado. A interface web em React.
+├── tests/                          # Testes do backend, com Vitest e Supertest.
+│   ├── helpers/bancoDeTeste.js     # Cria um banco temporário por arquivo de teste.
+│   ├── smoke.test.js               # O sistema sobe e atende.
+│   ├── produtos.test.js            # As três rotas, pela camada HTTP.
+│   └── produtoModel.test.js        # O model, sem HTTP.
+│
+├── painel-estoque/                 # Projeto npm separado. O painel em React.
 │   ├── index.html                  # Documento raiz que o Vite serve.
-│   ├── package.json                # Dependências e scripts do frontend.
-│   ├── vite.config.js              # Configuração do Vite.
-│   ├── eslint.config.js            # Regras do ESLint para o frontend.
-│   ├── public/                     # Arquivos servidos sem processamento.
+│   ├── vite.config.js              # Configuração do Vite, com o proxy para a API.
+│   ├── vitest.config.js            # Configuração dos testes do painel.
+│   ├── .env.example                # VITE_API_URL e VITE_ESTOQUE_BAIXO.
 │   └── src/
-│       ├── main.jsx                # Ponto de entrada do React. Monta o componente App.
-│       ├── App.jsx                 # Toda a interface, em um componente. Usa dados fixos.
-│       ├── App.css                 # Estilos da interface.
-│       ├── index.css               # Arquivo vazio. O main.jsx ainda o importa.
-│       └── assets/                 # Imagens do frontend.
+│       ├── main.jsx                # Ponto de entrada do React.
+│       ├── App.jsx                 # Compõe a tela e guarda o estado. Não desenha nada sozinho.
+│       ├── config.js               # URL da API, limite de estoque baixo e dados da loja.
+│       ├── api/produtos.js         # Cliente HTTP da API de estoque.
+│       ├── components/             # Header, BuscaForm, EstoqueTable, EstoqueRow,
+│       │                           # ProdutoForm e Footer.
+│       ├── __tests__/              # Testes do painel, com Testing Library.
+│       ├── App.css                 # Estilos do painel.
+│       └── index.css               # Estilos globais e as variáveis de cor.
+│
+├── .github/
+│   ├── workflows/ci.yml            # Integração contínua.
+│   ├── dependabot.yml              # Atualização de dependências.
+│   ├── pull_request_template.md
+│   └── ISSUE_TEMPLATE/
 │
 └── docs/
     └── ROADMAP.md                  # Plano técnico priorizado.
@@ -479,22 +476,20 @@ O backend segue uma separação em camadas. A rota recebe a URL, o controller tr
 
 O `server.js` e o `src/app.js` têm papéis separados de propósito. O `app.js` monta o Express e exporta o app, sem abrir porta. O `server.js` importa esse app e chama `listen`. Essa divisão permite que um teste importe o app e chame as rotas sem ocupar a porta 3000.
 
----
+No painel, o `App.jsx` só compõe a tela e guarda o estado. Cada parte da interface vive em `src/components`, e toda chamada de rede passa por `src/api/produtos.js`.
 
 ## Limitações Conhecidas
 
-Esta lista descreve o estado real do código. O arquivo [`docs/ROADMAP.md`](docs/ROADMAP.md) traz o plano de correção com prioridades.
+Esta lista descreve o estado real do código. O arquivo [`docs/ROADMAP.md`](docs/ROADMAP.md) traz o plano com prioridades.
 
-| # | Limitação | Impacto |
-| --- | --- | --- |
-| 1 | `POST /produtos` não valida a entrada e não pede autenticação. O CORS aceita qualquer origem. | Alto. Escrita livre na base. |
-| 2 | A interface web não chama a API. Ela usa a lista fixa `produtosMock` em `App.jsx`. | Alto. O dono da loja não tem como usar o sistema. |
-| 3 | A interface mostra os campos errados para o objetivo. Ela exibe `preco` e `imagem_url`, que a tabela não tem. Ela não exibe `quantidade` nem `status_estoque`, que são o dado central do estoque. As categorias da interface não existem nos dados reais. | Alto. A tela precisa de reescrita, não de ligação direta. |
-| 4 | A porta `3000` e o caminho do banco estão fixos no código. | Médio. Não há como configurar por ambiente. |
-| 5 | Não há testes, não há CI e o backend não tem linter. | Médio. Nenhuma rede de segurança. |
-| 6 | O `mysql2` está nas dependências mas o código nunca o importa. | Baixo. Dependência morta. |
-
----
+| #   | Limitação                                                                                                             | Impacto                                                     |
+| --- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 1   | `POST /produtos` valida a entrada, mas **não pede autenticação**. Qualquer pessoa com acesso à rede cadastra produto. | Alto. Não exponha este servidor na internet.                |
+| 2   | Não existe rota para editar nem para remover produto. O painel só lista, busca e cadastra.                            | Médio. A correção de um erro de digitação exige SQL na mão. |
+| 3   | O painel não tem paginação. Ele carrega o estoque inteiro em uma chamada.                                             | Baixo hoje, com 13 produtos. Cresce com o catálogo.         |
+| 4   | A tabela `produtos` tem as colunas `subcategoria`, `marca`, `cor` e `descricao`, e nada as preenche.                  | Baixo. Colunas mortas no esquema.                           |
+| 5   | Os dados da loja ficam em `painel-estoque/src/config.js`, e não em variável de ambiente.                              | Baixo. Precisa sair do código antes de qualquer publicação. |
+| 6   | O `status_estoque` é texto livre no banco. O formulário oferece três opções, mas a API aceita qualquer texto.         | Baixo. Permite valor fora do padrão via API.                |
 
 ## Licença
 
