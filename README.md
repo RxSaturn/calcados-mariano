@@ -435,7 +435,7 @@ O plano de testes automatizados está em [`docs/ROADMAP.md`](docs/ROADMAP.md), n
 
 ```
 calcados-mariano/
-├── server.js                       # Entrada do backend. Monta o Express e escuta a porta 3000.
+├── server.js                       # Entrada do backend. Só abre a porta 3000.
 ├── package.json                    # Dependências, scripts e metadados do backend.
 │                                   # (calcados_mariano.db não é versionado. Rode npm run db:setup.)
 │
@@ -445,6 +445,7 @@ calcados-mariano/
 │   └── setup.js                    # Cria o banco a partir dos dois arquivos acima.
 │
 ├── src/                            # Código do backend, separado por camada.
+│   ├── app.js                      # Monta o Express, os middlewares e as rotas. Não abre porta.
 │   ├── config/
 │   │   └── db.js                   # Abre a conexão SQLite e a exporta.
 │   ├── routes/
@@ -475,6 +476,8 @@ calcados-mariano/
 ```
 
 O backend segue uma separação em camadas. A rota recebe a URL, o controller trata o HTTP e o model fala com o banco. Uma camada só chama a camada abaixo dela.
+
+O `server.js` e o `src/app.js` têm papéis separados de propósito. O `app.js` monta o Express e exporta o app, sem abrir porta. O `server.js` importa esse app e chama `listen`. Essa divisão permite que um teste importe o app e chame as rotas sem ocupar a porta 3000.
 
 ---
 

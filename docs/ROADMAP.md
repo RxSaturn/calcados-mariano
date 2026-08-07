@@ -147,7 +147,7 @@ A rota vive em três arquivos, seguindo as camadas do backend: `src/routes/healt
 
 O pedido original pede foco em smoke tests. Esta onda começa por eles.
 
-### P1-1. Separar o `app` do `listen`
+### P1-1. Separar o `app` do `listen` ✅ FEITO
 
 **Por quê.** `server.js` cria o app e chama `app.listen` no mesmo arquivo. Nenhum teste consegue importar o app sem abrir a porta 3000. Este refactor é pré-requisito de todo teste de API.
 
@@ -156,6 +156,12 @@ O pedido original pede foco em smoke tests. Esta onda começa por eles.
 2. Deixe em `server.js` apenas o `require` do app e a chamada `app.listen`.
 
 **Pronto quando.** Um teste importa `src/app.js` e chama as rotas sem abrir porta. `node server.js` continua funcionando igual.
+
+**Resultado.** Os dois critérios passam. O `src/app.js` monta o Express e exporta o app. O `server.js` ficou com onze linhas e só chama `listen`.
+
+A prova: um script importou o app, chamou `app.listen(0)` para pegar uma porta efêmera e exercitou `/health`, `/produtos` e a busca sem `tipo`. As três responderam certo, em outra porta, com a 3000 livre. É isso que o supertest fará no item P1-2.
+
+O `npm start` continua igual, com as mesmas duas linhas de log e as cinco rotas respondendo.
 
 ### P1-2. Escrever os smoke tests do backend
 
