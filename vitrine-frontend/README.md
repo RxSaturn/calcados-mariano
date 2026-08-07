@@ -1,16 +1,38 @@
-# React + Vite
+# vitrine-frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A interface web da Calçados Mariano. React 19 com Vite.
 
-Currently, two official plugins are available:
+O nome da pasta vem da primeira versão do projeto, que era uma vitrine de produtos. O objetivo atual é outro. Esta interface vai virar o painel de administração do estoque, que lê e escreve pela API. Veja o item P2-1 em [`docs/ROADMAP.md`](../docs/ROADMAP.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Este pacote é uma parte do projeto. A documentação completa fica no [README da raiz](../README.md).
 
-## React Compiler
+## Comandos
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Instale as dependências antes do primeiro uso:
 
-## Expanding the ESLint configuration
+```bash
+npm install
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+| Comando | O que faz |
+| --- | --- |
+| `npm run dev` | Sobe o servidor de desenvolvimento em `http://localhost:5173`. |
+| `npm run build` | Gera a versão de produção na pasta `dist/`. |
+| `npm run preview` | Serve a pasta `dist/` para conferência local. |
+| `npm run lint` | Roda o ESLint em todo o pacote. |
+
+Este pacote não chama o backend hoje. A lista de produtos é a constante `produtosMock` em `src/App.jsx`. Você roda a interface sem iniciar o servidor.
+
+Os campos que a tela mostra hoje (`preco`, `imagem_url`, `tamanhos`) não existem na tabela `produtos`. Os campos do estoque (`quantidade`, `status_estoque`, `numeracao`) não aparecem na tela. A conversão da página em painel de estoque resolve as duas coisas.
+
+## Arquivos
+
+| Caminho | Conteúdo |
+| --- | --- |
+| `src/main.jsx` | Ponto de entrada. Monta o componente `App`. |
+| `src/App.jsx` | Toda a interface, em um componente. |
+| `src/App.css` | Estilos da vitrine. |
+| `vite.config.js` | Configuração do Vite. |
+| `eslint.config.js` | Regras do ESLint. |
+
+O plano de refatoração deste pacote está em [`docs/ROADMAP.md`](../docs/ROADMAP.md).
