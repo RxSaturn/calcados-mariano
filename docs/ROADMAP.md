@@ -44,9 +44,9 @@ O motivo é concreto. O código traz dados reais da loja, entre eles os telefone
 
 ## P0. Bloqueadores
 
-### P0-1. Corrigir a falha que derruba o servidor
+### P0-1. Corrigir a falha que derruba o servidor ✅ FEITO
 
-**Por quê.** `GET /produtos/buscar` sem o parâmetro `tipo` termina o processo do servidor com segmentation fault e código de saída 139. O time reproduziu a falha duas vezes em duas tentativas. `ProdutoModel.buscar` não tem ramo padrão, portanto `sql` fica com a string vazia e `db.all('')` faz o driver `sqlite3` falhar em código nativo. Qualquer pessoa com acesso à rede tira o serviço do ar com um único pedido, sem autenticação.
+**Por quê.** `GET /produtos/buscar` sem o parâmetro `tipo` terminava o processo do servidor com segmentation fault e código de saída 139. O time reproduziu a falha duas vezes em duas tentativas. `ProdutoModel.buscar` não tem ramo padrão, portanto `sql` fica com a string vazia e `db.all('')` faz o driver `sqlite3` falhar em código nativo. Qualquer pessoa com acesso à rede tira o serviço do ar com um único pedido, sem autenticação.
 
 Este é o item mais urgente do repositório.
 
@@ -60,6 +60,10 @@ Este é o item mais urgente do repositório.
 - `curl "http://localhost:3000/produtos/buscar?termo=41"` responde `400` e o servidor continua no ar.
 - `curl "http://localhost:3000/produtos/buscar?tipo=cor&termo=azul"` responde `400`.
 - `curl "http://localhost:3000/produtos/buscar?tipo=nome&termo=bota"` continua respondendo `200` com o resultado correto.
+
+**Resultado.** Os três critérios passam. `buscar` agora consulta uma tabela de tipos aceitos e nunca monta a consulta fora dela. O servidor sobreviveu a 100 pedidos do caso que antes o derrubava, e devolveu `400` nos 100.
+
+Falta a cobertura de teste automatizado. Os itens P1-3 e P1-4 escrevem o teste de regressão desta correção.
 
 ### P0-2. Tirar o banco de dados do controle de versão
 

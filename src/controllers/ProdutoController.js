@@ -32,6 +32,11 @@ const ProdutoController = {
 
         ProdutoModel.buscar(termo, tipo, (erro, resultados) => {
             if (erro) {
+                // Pedido malformado do cliente. O model marca esses erros com 'validacao'.
+                // Antes desta checagem, um pedido sem 'tipo' derrubava o servidor.
+                if (erro.validacao) {
+                    return res.status(400).json({ mensagem: erro.message });
+                }
                 return res.status(500).json({ mensagem: 'Erro ao pesquisar os produtos.' });
             }
             return res.status(200).json(resultados);

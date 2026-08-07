@@ -244,15 +244,23 @@ curl "http://localhost:3000/produtos/buscar?tipo=nome&termo=bota"
 ]
 ```
 
-> **Bug conhecido e grave.** Um pedido sem o parâmetro `tipo`, ou com um `tipo` inválido, **derruba o processo do servidor**. O modelo monta uma consulta SQL vazia e o driver `sqlite3` falha com segmentation fault. O servidor termina com o código de saída 139 e para de atender.
->
-> O comando abaixo mata o servidor. Não o execute em produção.
->
-> ```bash
-> curl "http://localhost:3000/produtos/buscar?termo=41"
-> ```
->
-> Envie sempre os dois parâmetros até a correção. O item está como prioridade P0 em [`docs/ROADMAP.md`](docs/ROADMAP.md).
+A rota rejeita um pedido incompleto com `400` e uma mensagem que diz o que falta:
+
+```bash
+curl "http://localhost:3000/produtos/buscar?termo=41"
+```
+
+```json
+{ "mensagem": "O parâmetro \"tipo\" é obrigatório e precisa ser um destes: nome, categoria, numeracao." }
+```
+
+| Resposta | Quando |
+| --- | --- |
+| `200` | A busca funcionou. O corpo traz um array, que pode vir vazio. |
+| `400` | O pedido não trouxe `tipo`, ou trouxe um `tipo` fora da lista, ou não trouxe `termo`. |
+| `500` | O banco de dados falhou. |
+
+> **Histórico.** Até a correção do item P0-1, um pedido sem `tipo` derrubava o processo do servidor com segmentation fault e código de saída 139. O modelo montava uma consulta SQL vazia e o driver `sqlite3` falhava em código nativo. A rota agora valida os dois parâmetros antes de chegar ao banco.
 
 ### `POST /produtos`
 
@@ -408,16 +416,15 @@ Esta lista descreve o estado real do código. O arquivo [`docs/ROADMAP.md`](docs
 
 | # | Limitação | Impacto |
 | --- | --- | --- |
-| 1 | `GET /produtos/buscar` sem `tipo` derruba o servidor com segmentation fault. | Crítico. Qualquer pessoa tira o serviço do ar com um pedido. |
-| 2 | `POST /produtos` não valida a entrada e não pede autenticação. O CORS aceita qualquer origem. | Alto. Escrita livre na base. |
-| 3 | A interface web não chama a API. Ela usa a lista fixa `produtosMock` em `App.jsx`. | Alto. O dono da loja não tem como usar o sistema. |
-| 4 | A interface mostra os campos errados para o objetivo. Ela exibe `preco` e `imagem_url`, que a tabela não tem. Ela não exibe `quantidade` nem `status_estoque`, que são o dado central do estoque. As categorias da interface não existem nos dados reais. | Alto. A tela precisa de reescrita, não de ligação direta. |
-| 5 | O banco `calcados_mariano.db` está versionado no Git. | Médio. Diff binário e conflito sem resolução. |
-| 6 | Não existe script de esquema nem de carga inicial. O esquema mora apenas dentro do arquivo binário. | Médio. Impede um banco de teste limpo. |
-| 7 | O `package.json` aponta `main` para `index.js`, que não existe. Não há script `start`. O campo `repository` aponta para outro dono. | Médio. `npm start` falha. |
-| 8 | A porta `3000` e o caminho do banco estão fixos no código. | Médio. Não há como configurar por ambiente. |
-| 9 | Não há testes, não há CI e o backend não tem linter. | Médio. Nenhuma rede de segurança. |
-| 10 | O `mysql2` está nas dependências mas o código nunca o importa. | Baixo. Dependência morta. |
+| 1 | `POST /produtos` não valida a entrada e não pede autenticação. O CORS aceita qualquer origem. | Alto. Escrita livre na base. |
+| 2 | A interface web não chama a API. Ela usa a lista fixa `produtosMock` em `App.jsx`. | Alto. O dono da loja não tem como usar o sistema. |
+| 3 | A interface mostra os campos errados para o objetivo. Ela exibe `preco` e `imagem_url`, que a tabela não tem. Ela não exibe `quantidade` nem `status_estoque`, que são o dado central do estoque. As categorias da interface não existem nos dados reais. | Alto. A tela precisa de reescrita, não de ligação direta. |
+| 4 | O banco `calcados_mariano.db` está versionado no Git. | Médio. Diff binário e conflito sem resolução. |
+| 5 | Não existe script de esquema nem de carga inicial. O esquema mora apenas dentro do arquivo binário. | Médio. Impede um banco de teste limpo. |
+| 6 | O `package.json` aponta `main` para `index.js`, que não existe. Não há script `start`. O campo `repository` aponta para outro dono. | Médio. `npm start` falha. |
+| 7 | A porta `3000` e o caminho do banco estão fixos no código. | Médio. Não há como configurar por ambiente. |
+| 8 | Não há testes, não há CI e o backend não tem linter. | Médio. Nenhuma rede de segurança. |
+| 9 | O `mysql2` está nas dependências mas o código nunca o importa. | Baixo. Dependência morta. |
 
 ---
 
