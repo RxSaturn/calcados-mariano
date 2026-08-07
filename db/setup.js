@@ -29,8 +29,42 @@ const encerrarComErro = (mensagem, erro) => {
 // uma tabela que já existe. Esta função aplica o que falta, sem recriar o banco.
 const COLUNAS_ESPERADAS = [
     { nome: 'publico', tipo: 'TEXT' },
-    { nome: 'imagem_url', tipo: 'TEXT' }
+    { nome: 'imagem_url', tipo: 'TEXT' },
+    { nome: 'nome_ordenacao', tipo: 'TEXT' }
 ];
+
+// Nome sem acento e em minúscula. Precisa casar com chaveDeOrdenacao em
+// src/models/ProdutoModel.js, senão a ordenação sai diferente entre a carga e a escrita.
+const chaveDeOrdenacao = (texto) =>
+    texto
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+// Preenche nome_ordenacao nas linhas que ainda não têm. Um banco migrado de uma versão
+// anterior tem a coluna vazia, e a listagem ordenada sairia com esses produtos no fim.
+const preencherOrdenacao = (banco, pronto) => {
+    banco.all(
+        "SELECT id, nome FROM produtos WHERE nome IS NOT NULL AND (nome_ordenacao IS NULL OR nome_ordenacao = '')",
+        (erro, linhas) => {
+            if (erro) return pronto(erro);
+            if (linhas.length === 0) return pronto(null);
+
+            const proxima = (i) => {
+                if (i >= linhas.length) {
+                    console.log(`Ordenação preenchida em ${linhas.length} produtos.`);
+                    return pronto(null);
+                }
+                banco.run(
+                    'UPDATE produtos SET nome_ordenacao = ? WHERE id = ?',
+                    [chaveDeOrdenacao(linhas[i].nome), linhas[i].id],
+                    (erro) => (erro ? pronto(erro) : proxima(i + 1))
+                );
+            };
+            proxima(0);
+        }
+    );
+};
 
 const migrarColunas = (banco, pronto) => {
     banco.all('PRAGMA table_info(produtos)', (erro, colunas) => {
@@ -72,24 +106,30 @@ const banco = new sqlite3.Database(CAMINHO_BANCO, (erro) => {
             banco.exec(fs.readFileSync(ARQUIVO_INDICES, 'utf8'), (erro) => {
                 if (erro) encerrarComErro('Falha ao criar os índices.', erro);
 
-                banco.get('SELECT COUNT(*) AS total FROM produtos', (erro, linha) => {
-                    if (erro) encerrarComErro('Falha ao contar os produtos.', erro);
+                preencherOrdenacao(banco, (erro) => {
+                    if (erro) encerrarComErro('Falha ao preencher a ordenação.', erro);
 
-                    // Sem --reset, um banco que já tem dados fica intacto. Isso evita
-                    // que o comando apague o estoque de alguém por engano.
-                    if (linha.total > 0 && !reset) {
-                        console.log(`A tabela já tem ${linha.total} produtos. Nada mudou.`);
-                        console.log('Use "npm run db:setup -- --reset" para recarregar.');
-                        return banco.close();
-                    }
+                    banco.get('SELECT COUNT(*) AS total FROM produtos', (erro, linha) => {
+                        if (erro) encerrarComErro('Falha ao contar os produtos.', erro);
 
-                    banco.exec(fs.readFileSync(ARQUIVO_CARGA, 'utf8'), (erro) => {
-                        if (erro) encerrarComErro('Falha ao carregar os dados.', erro);
+                        // Sem --reset, um banco que já tem dados fica intacto. Isso evita
+                        // que o comando apague o estoque de alguém por engano.
+                        if (linha.total > 0 && !reset) {
+                            console.log(`A tabela já tem ${linha.total} produtos. Nada mudou.`);
+                            console.log('Use "npm run db:setup -- --reset" para recarregar.');
+                            return banco.close();
+                        }
 
-                        banco.get('SELECT COUNT(*) AS total FROM produtos', (erro, linha) => {
-                            if (erro) encerrarComErro('Falha ao contar os produtos.', erro);
-                            console.log(`Dados carregados. A tabela tem ${linha.total} produtos.`);
-                            banco.close();
+                        banco.exec(fs.readFileSync(ARQUIVO_CARGA, 'utf8'), (erro) => {
+                            if (erro) encerrarComErro('Falha ao carregar os dados.', erro);
+
+                            banco.get('SELECT COUNT(*) AS total FROM produtos', (erro, linha) => {
+                                if (erro) encerrarComErro('Falha ao contar.', erro);
+                                console.log(
+                                    `Dados carregados. A tabela tem ${linha.total} produtos.`
+                                );
+                                banco.close();
+                            });
                         });
                     });
                 });

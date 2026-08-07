@@ -32,5 +32,13 @@ CREATE TABLE IF NOT EXISTS produtos (
     marca          TEXT,
     cor            TEXT,
     descricao      TEXT,
-    imagem_url     TEXT     -- Foto do produto na vitrine. Nulo mostra um marcador
+    imagem_url     TEXT,    -- Foto do produto na vitrine. Nulo mostra um marcador
+
+    -- Nome sem acento e em minúscula, usado só para ordenar.
+    --
+    -- O SQLite não tem colação por idioma. COLLATE NOCASE dobra apenas ASCII, portanto
+    -- 'Sapatênis' cairia depois de 'Sapato', porque o ponto de código de 'ê' é maior que
+    -- o de 'o'. Num catálogo em português quase todo nome tem acento, e a lista sairia
+    -- fora de ordem para quem olha. Esta coluna é preenchida na escrita.
+    nome_ordenacao TEXT
 );

@@ -9,3 +9,6 @@
 CREATE INDEX IF NOT EXISTS idx_produtos_numeracao ON produtos (numeracao);
 CREATE INDEX IF NOT EXISTS idx_produtos_categoria ON produtos (categoria);
 CREATE INDEX IF NOT EXISTS idx_produtos_publico ON produtos (publico);
+
+-- A listagem ordena por este campo por padrão.
+CREATE INDEX IF NOT EXISTS idx_produtos_nome_ordenacao ON produtos (nome_ordenacao);

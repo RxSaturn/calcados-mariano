@@ -1,8 +1,11 @@
 import { useState } from 'react';
 
+import { PUBLICOS } from '../config';
+
 const VAZIO = {
   nome: '',
   categoria: '',
+  publico: 'Unissex',
   numeracao: '',
   quantidade: '',
   status_estoque: 'Em estoque'
@@ -49,6 +52,19 @@ function ProdutoForm({ onCadastrar }) {
         <label className="campo">
           <span>Categoria</span>
           <input type="text" value={dados.categoria} onChange={mudar('categoria')} />
+        </label>
+
+        <label className="campo">
+          {/* O público define em qual filtro da vitrine o produto aparece. A API o exige,
+              e sem ele o cadastro voltaria 400. */}
+          <span>Público</span>
+          <select value={dados.publico} onChange={mudar('publico')}>
+            {PUBLICOS.map((valor) => (
+              <option key={valor} value={valor}>
+                {valor}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="campo campo-curto">

@@ -101,6 +101,7 @@ describe('ProdutoModel.adicionar', () => {
     const valido = {
         nome: 'Bota Unitaria',
         categoria: 'Bota',
+        publico: 'Masculino',
         quantidade: 4,
         status_estoque: 'Em estoque',
         numeracao: '42'
@@ -131,7 +132,8 @@ describe('ProdutoModel.adicionar', () => {
             { ...valido, nome: '   ' },
             { ...valido, nome: 42 },
             { ...valido, categoria: undefined },
-            { ...valido, status_estoque: undefined },
+            { ...valido, publico: undefined },
+            { ...valido, publico: 'Homem' },
             { ...valido, numeracao: undefined }
         ];
 
@@ -168,7 +170,7 @@ describe('ProdutoModel.adicionar', () => {
         } catch (erro) {
             expect(erro.validacao).toBe(true);
             expect(Array.isArray(erro.erros)).toBe(true);
-            // nome, categoria, status_estoque, numeracao e quantidade
+            // nome, categoria, numeracao, publico e quantidade
             expect(erro.erros.length).toBeGreaterThanOrEqual(5);
         }
     });
