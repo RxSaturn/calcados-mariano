@@ -1,22 +1,35 @@
 {
   "name": "calcados-mariano",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "API de gestão de estoque da Calçados Mariano, loja de calçados de Bambuí (MG).",
+  "main": "server.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:setup": "node db/setup.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [
+    "estoque",
+    "calcados",
+    "express",
+    "sqlite",
+    "api-rest"
+  ],
+  "author": "",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/henrique-ep/calcados-mariano.git"
+    "url": "git+https://github.com/RxSaturn/calcados-mariano.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "bugs": {
-    "url": "https://github.com/henrique-ep/calcados-mariano/issues"
+    "url": "https://github.com/RxSaturn/calcados-mariano/issues"
   },
-  "homepage": "https://github.com/henrique-ep/calcados-mariano#readme",
+  "homepage": "https://github.com/RxSaturn/calcados-mariano#readme",
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",

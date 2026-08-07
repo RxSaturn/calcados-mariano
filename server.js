@@ -15,16 +15,19 @@ require('./src/config/db');
 // Permite que o servidor entenda dados enviados no formato JSON
 app.use(express.json());
 
-// Importando o arquivo de rotas que acabamos de criar
-const produtoRoutes = require('./src/routes/produtoRoutes');
-
-// Avisando ao servidor para usar essas rotas
-app.use('/', produtoRoutes);
-
-// Rota de teste simples para verificar se o servidor está funcionando
+// Rota raiz. Diz apenas que o processo está no ar, e não olha o banco.
+// Ela vem antes das outras para deixar a ordem de registro explícita.
 app.get('/', (req, res) => {
     res.send('Servidor da Calçados Mariano rodando com sucesso!');
 });
+
+// Importando os arquivos de rotas
+const healthRoutes = require('./src/routes/healthRoutes');
+const produtoRoutes = require('./src/routes/produtoRoutes');
+
+// Avisando ao servidor para usar essas rotas
+app.use('/', healthRoutes);
+app.use('/', produtoRoutes);
 
 // Iniciando o servidor na porta 3000
 const PORT = 3000;

@@ -102,7 +102,13 @@ O backend e o frontend são dois projetos npm separados. Cada um tem o seu próp
    npm install
    ```
 
-3. Instale as dependências do frontend:
+3. Crie o banco de dados:
+
+   ```bash
+   npm run db:setup
+   ```
+
+4. Instale as dependências do frontend:
 
    ```bash
    cd vitrine-frontend
@@ -110,7 +116,18 @@ O backend e o frontend são dois projetos npm separados. Cada um tem o seu próp
    cd ..
    ```
 
-O banco de dados não precisa de instalação. O arquivo `calcados_mariano.db` já vem no repositório com 13 produtos de exemplo.
+### Sobre o banco de dados
+
+O arquivo `calcados_mariano.db` **não** vem no repositório. O comando `npm run db:setup` o cria a partir de dois arquivos SQL versionados:
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| `db/schema.sql` | A estrutura da tabela `produtos` e os índices. |
+| `db/seed.sql` | Treze calçados de exemplo, para o banco não nascer vazio. |
+
+O comando não apaga dados. Quando a tabela já tem produtos, ele avisa e não altera nada. Para recarregar os dados de exemplo e descartar o que existe, use `npm run db:setup -- --reset`.
+
+Um clone que não roda este comando fica com um banco vazio, e as rotas de produto respondem `500`. A rota `GET /health` avisa quando isso acontece.
 
 ---
 
@@ -123,7 +140,7 @@ O backend e o frontend rodam em terminais separados.
 Na raiz do projeto, execute:
 
 ```bash
-node server.js
+npm start
 ```
 
 O servidor sobe na porta `3000`. Ele imprime duas linhas quando tudo funciona:
@@ -133,18 +150,25 @@ Servidor rodando na porta 3000
 Conectado ao banco de dados SQLite da Calçados Mariano!
 ```
 
-Confirme que o servidor responde:
+Confirme que o servidor e o banco respondem:
 
 ```bash
-curl http://localhost:3000/
-# Servidor da Calçados Mariano rodando com sucesso!
+curl http://localhost:3000/health
+# {"status":"ok","banco":"conectado","produtos":13}
 ```
 
 Para parar o servidor, pressione `Ctrl+C`.
 
-> **Atenção:** não use `npm start`. O `package.json` ainda não define esse script. Rode o comando `node server.js` direto.
->
-> Execute o comando sempre a partir da raiz do projeto. O caminho do banco é relativo à pasta atual, portanto o servidor não encontra o banco se você o iniciar de outro lugar.
+### Comandos do backend
+
+| Comando | O que faz |
+| --- | --- |
+| `npm start` | Sobe o servidor na porta 3000. |
+| `npm run dev` | Sobe o servidor e o reinicia quando um arquivo muda. |
+| `npm run db:setup` | Cria o banco a partir de `db/schema.sql` e `db/seed.sql`. |
+| `npm run db:setup -- --reset` | Recarrega os dados de exemplo e descarta os atuais. |
+
+> **Atenção:** execute os comandos sempre a partir da raiz do projeto. O caminho do banco é relativo à pasta atual, portanto o servidor não encontra o banco se você o iniciar de outro lugar. O item P2-3 do roadmap corrige isso.
 
 ### Frontend
 
@@ -186,7 +210,32 @@ curl http://localhost:3000/
 Servidor da Calçados Mariano rodando com sucesso!
 ```
 
-Esta rota não verifica o banco de dados. Ela responde `200` mesmo quando o banco falha.
+Esta rota não verifica o banco de dados. Ela responde `200` mesmo quando o banco falha. Para monitoramento, use `GET /health`.
+
+### `GET /health`
+
+Diz se o servidor **e o banco** estão em condições de atender. Use esta rota em monitoramento e em smoke tests.
+
+```bash
+curl http://localhost:3000/health
+```
+
+```json
+{ "status": "ok", "banco": "conectado", "produtos": 13 }
+```
+
+Quando o banco não responde:
+
+```json
+{ "status": "indisponivel", "banco": "sem resposta", "mensagem": "SQLITE_ERROR: no such table: produtos" }
+```
+
+| Resposta | Quando |
+| --- | --- |
+| `200` | O banco respondeu. O campo `produtos` traz a contagem de linhas. |
+| `503` | O banco não respondeu, ou a tabela `produtos` não existe. |
+
+A verificação consulta a tabela `produtos` de propósito. Uma consulta como `SELECT 1` provaria só que a conexão abriu. O driver `sqlite3` cria um arquivo vazio quando o banco não existe, portanto `SELECT 1` passaria em um clone onde ninguém rodou `npm run db:setup`.
 
 ### `GET /produtos`
 
@@ -335,16 +384,18 @@ O frontend não define um script `test`.
 
 Enquanto os testes não existem, use estas verificações manuais.
 
-1. Inicie o backend e confirme as duas mensagens de log:
+1. Crie o banco e inicie o backend:
 
    ```bash
-   node server.js
+   npm run db:setup
+   npm start
    ```
 
-2. Confirme que a rota raiz responde:
+2. Confirme que o servidor e o banco respondem:
 
    ```bash
-   curl -i http://localhost:3000/
+   curl -s http://localhost:3000/health
+   # {"status":"ok","banco":"conectado","produtos":13}
    ```
 
 3. Confirme que a listagem devolve um array com 13 produtos:
@@ -359,7 +410,16 @@ Enquanto os testes não existem, use estas verificações manuais.
    curl -s "http://localhost:3000/produtos/buscar?tipo=nome&termo=bota"
    ```
 
-5. Confirme que o frontend passa no linter e compila:
+5. Confirme que a busca incompleta responde `400` e o servidor continua no ar:
+
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3000/produtos/buscar?termo=41"
+   # 400
+   curl -s http://localhost:3000/health
+   # o servidor precisa continuar respondendo
+   ```
+
+6. Confirme que o frontend passa no linter e compila:
 
    ```bash
    cd vitrine-frontend
@@ -376,17 +436,25 @@ O plano de testes automatizados está em [`docs/ROADMAP.md`](docs/ROADMAP.md), n
 ```
 calcados-mariano/
 ├── server.js                       # Entrada do backend. Monta o Express e escuta a porta 3000.
-├── package.json                    # Dependências e metadados do backend.
-├── calcados_mariano.db             # Banco SQLite versionado, com 13 produtos de exemplo.
+├── package.json                    # Dependências, scripts e metadados do backend.
+│                                   # (calcados_mariano.db não é versionado. Rode npm run db:setup.)
+│
+├── db/                             # Definição do banco de dados.
+│   ├── schema.sql                  # Estrutura da tabela produtos e os índices.
+│   ├── seed.sql                    # Treze calçados de exemplo.
+│   └── setup.js                    # Cria o banco a partir dos dois arquivos acima.
 │
 ├── src/                            # Código do backend, separado por camada.
 │   ├── config/
 │   │   └── db.js                   # Abre a conexão SQLite e a exporta.
 │   ├── routes/
+│   │   ├── healthRoutes.js         # Declara a rota GET /health.
 │   │   └── produtoRoutes.js        # Declara as três rotas de produto.
 │   ├── controllers/
+│   │   ├── HealthController.js     # Responde 200 ou 503 conforme o banco.
 │   │   └── ProdutoController.js    # Trata requisição e resposta HTTP. Define os status.
 │   └── models/
+│       ├── HealthModel.js          # Consulta a tabela para provar que o banco responde.
 │       └── ProdutoModel.js         # Monta e executa as consultas SQL.
 │
 ├── vitrine-frontend/               # Projeto npm separado. A interface web em React.
@@ -419,18 +487,15 @@ Esta lista descreve o estado real do código. O arquivo [`docs/ROADMAP.md`](docs
 | 1 | `POST /produtos` não valida a entrada e não pede autenticação. O CORS aceita qualquer origem. | Alto. Escrita livre na base. |
 | 2 | A interface web não chama a API. Ela usa a lista fixa `produtosMock` em `App.jsx`. | Alto. O dono da loja não tem como usar o sistema. |
 | 3 | A interface mostra os campos errados para o objetivo. Ela exibe `preco` e `imagem_url`, que a tabela não tem. Ela não exibe `quantidade` nem `status_estoque`, que são o dado central do estoque. As categorias da interface não existem nos dados reais. | Alto. A tela precisa de reescrita, não de ligação direta. |
-| 4 | O banco `calcados_mariano.db` está versionado no Git. | Médio. Diff binário e conflito sem resolução. |
-| 5 | Não existe script de esquema nem de carga inicial. O esquema mora apenas dentro do arquivo binário. | Médio. Impede um banco de teste limpo. |
-| 6 | O `package.json` aponta `main` para `index.js`, que não existe. Não há script `start`. O campo `repository` aponta para outro dono. | Médio. `npm start` falha. |
-| 7 | A porta `3000` e o caminho do banco estão fixos no código. | Médio. Não há como configurar por ambiente. |
-| 8 | Não há testes, não há CI e o backend não tem linter. | Médio. Nenhuma rede de segurança. |
-| 9 | O `mysql2` está nas dependências mas o código nunca o importa. | Baixo. Dependência morta. |
+| 4 | A porta `3000` e o caminho do banco estão fixos no código. | Médio. Não há como configurar por ambiente. |
+| 5 | Não há testes, não há CI e o backend não tem linter. | Médio. Nenhuma rede de segurança. |
+| 6 | O `mysql2` está nas dependências mas o código nunca o importa. | Baixo. Dependência morta. |
 
 ---
 
 ## Licença
 
-**Este projeto não tem licença definida.** O repositório não traz um arquivo `LICENSE`. O campo `license` do `package.json` ainda diz `ISC`, mas essa declaração é um resto do `npm init` e não representa uma decisão do time.
+**Este projeto não tem licença definida.** O repositório não traz um arquivo `LICENSE`. O `package.json` declara `"license": "UNLICENSED"` e `"private": true`, que é a forma de dizer que nenhuma licença foi concedida.
 
 Sem uma licença explícita, ninguém tem permissão de uso, cópia ou distribuição deste código. Trate o repositório como privado.
 

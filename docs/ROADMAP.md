@@ -36,7 +36,9 @@ A interface usa hoje as categorias `Masculino`, `Feminino` e `Esporte`. Elas nã
 
 ### Decisão que continua pendente: o licenciamento
 
-O repositório não tem arquivo `LICENSE`. O campo `license` do `package.json` diz `ISC`, mas isso é um resto do `npm init`. O time decidiu **não** publicar uma licença por enquanto e tratar o repositório como privado.
+O repositório não tem arquivo `LICENSE`. O time decidiu **não** publicar uma licença por enquanto e tratar o repositório como privado. O item P0-4 já alinhou o `package.json` a essa decisão, com `"license": "UNLICENSED"` e `"private": true`.
+
+A decisão de qual licença adotar continua aberta.
 
 O motivo é concreto. O código traz dados reais da loja, entre eles os telefones das duas unidades em `vitrine-frontend/src/App.jsx`. O time precisa decidir o licenciamento antes de qualquer publicação. Sem licença explícita, ninguém tem permissão de uso, cópia ou distribuição.
 
@@ -46,7 +48,7 @@ O motivo é concreto. O código traz dados reais da loja, entre eles os telefone
 
 ### P0-1. Corrigir a falha que derruba o servidor ✅ FEITO
 
-**Por quê.** `GET /produtos/buscar` sem o parâmetro `tipo` terminava o processo do servidor com segmentation fault e código de saída 139. O time reproduziu a falha duas vezes em duas tentativas. `ProdutoModel.buscar` não tem ramo padrão, portanto `sql` fica com a string vazia e `db.all('')` faz o driver `sqlite3` falhar em código nativo. Qualquer pessoa com acesso à rede tira o serviço do ar com um único pedido, sem autenticação.
+**Por quê.** `GET /produtos/buscar` sem o parâmetro `tipo` terminava o processo do servidor com segmentation fault e código de saída 139. O time reproduziu a falha duas vezes em duas tentativas. `ProdutoModel.buscar` não tinha ramo padrão, portanto `sql` ficava com a string vazia e `db.all('')` fazia o driver `sqlite3` falhar em código nativo. Qualquer pessoa com acesso à rede tirava o serviço do ar com um único pedido, sem autenticação.
 
 Este é o item mais urgente do repositório.
 
@@ -65,7 +67,7 @@ Este é o item mais urgente do repositório.
 
 Falta a cobertura de teste automatizado. Os itens P1-3 e P1-4 escrevem o teste de regressão desta correção.
 
-### P0-2. Tirar o banco de dados do controle de versão
+### P0-2. Tirar o banco de dados do controle de versão ✅ FEITO
 
 **Por quê.** O arquivo `calcados_mariano.db` é binário e está rastreado no Git. O commit `dc33f17` se chama `Update calcados_mariano.db`. Cada mudança de dado gera um diff binário. Duas pessoas que editam o estoque ao mesmo tempo criam um conflito sem resolução possível. O padrão `*.db` não está em nenhum `.gitignore`.
 
@@ -82,7 +84,11 @@ Falta a cobertura de teste automatizado. Os itens P1-3 e P1-4 escrevem o teste d
 - `npm run db:setup` cria um banco com 13 produtos.
 - `git status` fica limpo depois de o servidor gravar um produto novo.
 
-### P0-3. Corrigir os metadados do `package.json`
+**Resultado.** Os três critérios passam. O time apagou o arquivo do banco e o recriou com `npm run db:setup`, e a tabela voltou com 13 produtos, os dois índices e os valores limpos. O `.gitignore` cobre `*.db`, `*.db-journal`, `*.sqlite` e `*.sqlite3`.
+
+O script protege dados: quando a tabela já tem produtos, ele avisa e não altera nada. A carga só roda em tabela vazia, ou com `npm run db:setup -- --reset`.
+
+### P0-3. Corrigir os metadados do `package.json` ✅ FEITO
 
 **Por quê.** O campo `main` aponta para `index.js`, que não existe. O ponto de entrada é `server.js`. Não existe script `start`, portanto `npm start` falha. Os campos `repository`, `bugs` e `homepage` apontam para `henrique-ep/calcados-mariano`, e o repositório real é `RxSaturn/calcados-mariano`. Os campos `description`, `author` e `keywords` estão vazios.
 
@@ -96,7 +102,9 @@ Falta a cobertura de teste automatizado. Os itens P1-3 e P1-4 escrevem o teste d
 
 **Pronto quando.** `npm start` sobe o servidor na porta 3000.
 
-### P0-4. Alinhar o `package.json` com a ausência de licença
+**Resultado.** Passa. O `package.json` ganhou também `db:setup` e `engines`. O campo `author` continua vazio, porque o repositório tem três contribuidores e ninguém definiu a autoria a declarar.
+
+### P0-4. Alinhar o `package.json` com a ausência de licença ✅ FEITO
 
 **Por quê.** O `package.json` declara `"license": "ISC"`, e o time não escolheu essa licença. O repositório não tem arquivo `LICENSE`. A declaração atual afirma uma permissão que ninguém concedeu, e isso engana quem clona o projeto.
 
@@ -112,18 +120,26 @@ Este item não cria uma licença. Ele apenas para de declarar uma.
 - O `package.json` não declara mais ISC.
 - O GitHub não mostra nenhuma licença na barra lateral, e o README explica o motivo.
 
-### P0-5. Criar uma rota de saúde de verdade
+**Resultado.** O `package.json` declara `"license": "UNLICENSED"` e `"private": true`. O README explica o motivo. Falta o time confirmar que o repositório no GitHub está privado, porque essa parte não está no código.
+
+### P0-5. Criar uma rota de saúde de verdade ✅ FEITO
 
 **Por quê.** A rota `GET /` devolve texto puro e não olha o banco de dados. Ela responde `200` mesmo com o banco morto, portanto não serve para monitoramento e não serve como smoke test. O item P1-2 depende desta rota.
 
 **Como.**
-1. Crie `GET /health`. Rode uma consulta simples, por exemplo `SELECT 1`.
+1. Crie `GET /health`. Consulte a tabela `produtos`, e não `SELECT 1`.
 2. Responda `200` com JSON quando o banco responder. Responda `503` quando ele falhar.
 3. Mova o registro da rota raiz para antes de `app.use('/', produtoRoutes)`, para deixar a ordem explícita.
 
 **Pronto quando.**
 - `GET /health` responde `200` com JSON quando o banco está bom.
-- `GET /health` responde `503` quando o caminho do banco é inválido.
+- `GET /health` responde `503` quando o banco não responde.
+
+**Resultado.** Passa. Com o banco bom, a rota responde `200` e informa a contagem de produtos. Com a tabela removida, ela responde `503` e a mensagem do driver.
+
+O plano original pedia `SELECT 1`. Essa consulta não serve. O driver `sqlite3` cria um arquivo vazio quando o banco não existe, portanto `SELECT 1` passaria em um clone onde ninguém rodou `npm run db:setup`, e as rotas de produto falhariam depois. A verificação consulta `produtos` para provar que o esquema existe.
+
+A rota vive em três arquivos, seguindo as camadas do backend: `src/routes/healthRoutes.js`, `src/controllers/HealthController.js` e `src/models/HealthModel.js`.
 
 ---
 

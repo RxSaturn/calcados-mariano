@@ -134,3 +134,11 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Banco de dados SQLite. O arquivo é gerado por "npm run db:setup".
+# A estrutura fica em db/schema.sql e os dados iniciais em db/seed.sql.
+# Veja o item P0-2 em docs/ROADMAP.md.
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
