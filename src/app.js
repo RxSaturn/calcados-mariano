@@ -5,9 +5,18 @@ const cors = require('cors');
 
 const app = express();
 
-// O 'app.use' aplica o CORS no seu servidor, ele libera a entrada do front-end para o back-end,
-// permitindo que eles se comuniquem sem problemas de bloqueio de origem cruzada (CORS).
-app.use(cors());
+// O CORS libera a entrada do front-end para o back-end.
+//
+// A variável CORS_ORIGINS lista as origens aceitas, separadas por vírgula. Quando ela
+// não existe, o servidor aceita qualquer origem, o que serve só para desenvolvimento.
+// Antes desta mudança, o cors() sem opções aceitava qualquer origem sempre, e a rota de
+// escrita não pedia autenticação.
+const origensAceitas = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origem) => origem.trim())
+    .filter((origem) => origem !== '');
+
+app.use(cors(origensAceitas.length > 0 ? { origin: origensAceitas } : {}));
 
 // Puxando a conexão com o banco de dados para ele ser inicializado
 require('./config/db');

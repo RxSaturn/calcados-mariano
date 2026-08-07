@@ -1,0 +1,6 @@
+node_modules
+package-lock.json
+vitrine-frontend/package-lock.json
+vitrine-frontend/dist
+coverage
+*.db
