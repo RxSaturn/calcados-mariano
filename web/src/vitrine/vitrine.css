@@ -622,3 +622,85 @@ input:checked + .slider:before {
     gap: 20px;
   }
 }
+/* ---------------------------------------------------------------------------
+   Ajustes da integração com a API.
+
+   O card virou <button>: ele sempre foi clicável, mas como <div> ninguém
+   chegava nele pelo teclado, e leitor de tela não anunciava que dava para
+   abrir. Estes estilos tiram a aparência de botão e devolvem a de cartão.
+   --------------------------------------------------------------------------- */
+
+.card {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+}
+
+.card:focus-visible,
+.btn-categoria:focus-visible,
+.modal-close:focus-visible {
+    outline: 3px solid #6c4bd6;
+    outline-offset: 2px;
+}
+
+.card-acao {
+    display: block;
+    margin-top: 10px;
+    padding: 10px;
+    text-align: center;
+    border-radius: 6px;
+    background: #25d366;
+    color: #fff;
+    font-weight: 600;
+}
+
+.badge-esgotado {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: #ffcccc;
+    color: #a30000;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.aviso-vitrine {
+    grid-column: 1 / -1;
+    padding: 40px;
+    text-align: center;
+    color: #666;
+}
+
+.marca-esgotado {
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #ffcccc;
+    color: #c00;
+    font-weight: 700;
+}
+
+.marca-poucas {
+    margin-left: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #fff3cd;
+    color: #856404;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.btn-whatsapp {
+    display: block;
+    padding: 12px;
+    text-align: center;
+    text-decoration: none;
+}
+
+body.dark-mode .aviso-vitrine {
+    color: #bbb;
+}
