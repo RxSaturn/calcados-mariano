@@ -3,7 +3,7 @@ import EstoqueRow from './EstoqueRow';
 // Tabela de estoque. Trata os quatro estados da lista: carregando, erro, vazia e com
 // dados. A tabela substitui a grade de cards da vitrine, porque o painel mostra
 // quantidade e situação, e não preço e foto.
-function EstoqueTable({ produtos, carregando, erro, onTentarDeNovo }) {
+function EstoqueTable({ produtos, carregando, erro, onTentarDeNovo, onEditar, onRemover }) {
   if (carregando) {
     return <p className="aviso">Carregando o estoque...</p>;
   }
@@ -34,11 +34,17 @@ function EstoqueTable({ produtos, carregando, erro, onTentarDeNovo }) {
             <th scope="col">Numeração</th>
             <th scope="col">Quantidade</th>
             <th scope="col">Situação</th>
+            <th scope="col">Ações</th>
           </tr>
         </thead>
         <tbody>
           {produtos.map((produto) => (
-            <EstoqueRow key={produto.id} produto={produto} />
+            <EstoqueRow
+              key={produto.id}
+              produto={produto}
+              onEditar={onEditar}
+              onRemover={onRemover}
+            />
           ))}
         </tbody>
       </table>

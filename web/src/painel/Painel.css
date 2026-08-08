@@ -421,3 +421,22 @@ ul.aviso-erro {
   text-align: center;
   color: #6b6577;
 }
+
+/* Ações de cada linha da tabela. */
+.celula-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.confirma-texto {
+  font-weight: 600;
+  color: #a30000;
+}
+
+.btn-perigo {
+  border: 1px solid #a30000;
+  background: #a30000;
+  color: #fff;
+}

@@ -10,8 +10,10 @@ import LoginForm from './components/LoginForm';
 
 import {
   adicionarProduto,
+  atualizarProduto,
   buscarProdutos,
   listarProdutos,
+  removerProduto,
   obterSessao,
   sair
 } from '../api/produtos';
@@ -28,6 +30,9 @@ function App() {
   const [erro, setErro] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [filtro, setFiltro] = useState(null);
+  // O produto que está aberto para edição. `null` deixa o formulário no modo de
+  // cadastro, que é o estado normal da tela.
+  const [emEdicao, setEmEdicao] = useState(null);
   // null enquanto o servidor ainda não respondeu quem é. Sem esse terceiro
   // estado, a tela piscaria o formulário de login para quem já está logado.
   const [temSessao, setTemSessao] = useState(null);
@@ -121,6 +126,31 @@ function App() {
     await carregarTudo();
   };
 
+  const salvar = async (id, produto) => {
+    try {
+      await atualizarProduto(id, produto);
+    } catch (falha) {
+      if (tratarFalha(falha)) return;
+      throw falha;
+    }
+    setEmEdicao(null);
+    await carregarTudo();
+  };
+
+  const remover = async (produto) => {
+    try {
+      await removerProduto(produto.id);
+    } catch (falha) {
+      if (!tratarFalha(falha)) setErro(falha.message);
+      return;
+    }
+    // Se o produto removido era o que estava aberto para edição, o formulário
+    // precisa fechar: salvar depois disso daria 404, e a mensagem não diria que
+    // o produto já não existe.
+    setEmEdicao((atual) => (atual && atual.id === produto.id ? null : atual));
+    await carregarTudo();
+  };
+
   const totalBaixo = useMemo(
     () => produtos.filter((p) => p.quantidade <= LIMITE_ESTOQUE_BAIXO).length,
     [produtos]
@@ -167,6 +197,8 @@ function App() {
           />
 
           <EstoqueTable
+            onEditar={setEmEdicao}
+            onRemover={remover}
             produtos={produtos}
             carregando={carregando}
             erro={erro}
@@ -174,7 +206,13 @@ function App() {
           />
         </section>
 
-        <ProdutoForm onCadastrar={cadastrar} />
+        <ProdutoForm
+          key={emEdicao ? `edicao-${emEdicao.id}` : 'cadastro'}
+          onCadastrar={cadastrar}
+          produto={emEdicao}
+          onSalvar={salvar}
+          onCancelar={() => setEmEdicao(null)}
+        />
       </main>
 
       <Footer />
