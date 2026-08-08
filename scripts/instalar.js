@@ -39,7 +39,11 @@ function passo(texto) {
 }
 
 function rodar(comando, argumentos, pasta = RAIZ) {
-    execFileSync(comando, argumentos, { cwd: pasta, stdio: 'inherit', shell: process.platform === 'win32' });
+    execFileSync(comando, argumentos, {
+        cwd: pasta,
+        stdio: 'inherit',
+        shell: process.platform === 'win32'
+    });
 }
 
 function perguntar(rl, texto, padrao) {
@@ -156,13 +160,19 @@ async function prepararConfiguracao() {
 
     let senha = process.env.INSTALAR_SENHA || '';
     if (senha && senha.length < SENHA_MINIMA) {
-        console.error(cor.erro(`\nINSTALAR_SENHA tem ${senha.length} caracteres. Use pelo menos ${SENHA_MINIMA}.\n`));
+        console.error(
+            cor.erro(
+                `\nINSTALAR_SENHA tem ${senha.length} caracteres. Use pelo menos ${SENHA_MINIMA}.\n`
+            )
+        );
         process.exit(1);
     }
     while (!senha) {
         senha = await perguntarSenha(`Senha do painel (mínimo ${SENHA_MINIMA} caracteres)`);
         if (senha.length < SENHA_MINIMA) {
-            console.log(cor.erro(`  são ${senha.length} caracteres. Use pelo menos ${SENHA_MINIMA}.`));
+            console.log(
+                cor.erro(`  são ${senha.length} caracteres. Use pelo menos ${SENHA_MINIMA}.`)
+            );
             continue;
         }
         const repetida = await perguntarSenha('Digite de novo para conferir');

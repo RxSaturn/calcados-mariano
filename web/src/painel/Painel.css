@@ -335,89 +335,89 @@ ul.aviso-erro {
    --------------------------------------------------------------------------- */
 
 .login {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
 }
 
 .login-caixa {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    width: 100%;
-    max-width: 22rem;
-    padding: 32px;
-    border: 1px solid #e2e0e8;
-    border-radius: 10px;
-    background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 22rem;
+  padding: 32px;
+  border: 1px solid #e2e0e8;
+  border-radius: 10px;
+  background: #fff;
 }
 
 .login-titulo {
-    margin: 0;
-    font-size: 1.4rem;
+  margin: 0;
+  font-size: 1.4rem;
 }
 
 .login-subtitulo {
-    margin: 0 0 12px;
-    color: #6b6577;
+  margin: 0 0 12px;
+  color: #6b6577;
 }
 
 .login-rotulo {
-    font-weight: 600;
+  font-weight: 600;
 }
 
 .login-campo {
-    padding: 10px 12px;
-    border: 1px solid #c9c4d4;
-    border-radius: 6px;
-    font: inherit;
+  padding: 10px 12px;
+  border: 1px solid #c9c4d4;
+  border-radius: 6px;
+  font: inherit;
 }
 
 .login-botao {
-    margin-top: 6px;
-    padding: 11px;
-    border: none;
-    border-radius: 6px;
-    background: #6c4bd6;
-    color: #fff;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
+  margin-top: 6px;
+  padding: 11px;
+  border: none;
+  border-radius: 6px;
+  background: #6c4bd6;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .login-botao:disabled {
-    background: #b5abd6;
-    cursor: not-allowed;
+  background: #b5abd6;
+  cursor: not-allowed;
 }
 
 .login-erro {
-    margin: 0;
-    padding: 10px 12px;
-    border-radius: 6px;
-    background: #ffe9e9;
-    color: #a30000;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #ffe9e9;
+  color: #a30000;
 }
 
 .login-rodape {
-    margin: 8px 0 0;
-    color: #6b6577;
-    font-size: 0.85rem;
+  margin: 8px 0 0;
+  color: #6b6577;
+  font-size: 0.85rem;
 }
 
 .painel-sair {
-    align-self: start;
-    padding: 8px 16px;
-    border: 1px solid #c9c4d4;
-    border-radius: 6px;
-    background: transparent;
-    font: inherit;
-    cursor: pointer;
+  align-self: start;
+  padding: 8px 16px;
+  border: 1px solid #c9c4d4;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
 }
 
 .painel-aguardando {
-    padding: 40px;
-    text-align: center;
-    color: #6b6577;
+  padding: 40px;
+  text-align: center;
+  color: #6b6577;
 }

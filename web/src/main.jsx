@@ -22,14 +22,14 @@ import Painel from './painel/Painel.jsx';
  * endereço só enganaria quem confia nele.
  */
 createRoot(document.getElementById('root')).render(
-    <StrictMode>
-        <BrowserRouter>
-            <Routes>
-                <Route path="/" element={<VitrineApp />} />
-                <Route path="/admin" element={<Painel />} />
-                {/* Endereço desconhecido cai na vitrine, que é a porta da loja. */}
-                <Route path="*" element={<VitrineApp />} />
-            </Routes>
-        </BrowserRouter>
-    </StrictMode>
+  <StrictMode>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<VitrineApp />} />
+        <Route path="/admin" element={<Painel />} />
+        {/* Endereço desconhecido cai na vitrine, que é a porta da loja. */}
+        <Route path="*" element={<VitrineApp />} />
+      </Routes>
+    </BrowserRouter>
+  </StrictMode>
 );
