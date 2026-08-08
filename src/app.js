@@ -1,3 +1,7 @@
+// Antes de tudo: sem isto, ADMIN_SENHA_HASH e SESSAO_SEGREDO nunca chegam ao
+// processo, e o login responde 503 mesmo com o .env preenchido corretamente.
+require('./config/ambiente').carregarAmbiente();
+
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
