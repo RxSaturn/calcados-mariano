@@ -51,6 +51,14 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  # A autenticação é configurada aqui de propósito. Sem ADMIN_SENHA_HASH e
+                  # SESSAO_SEGREDO, as rotas de escrita respondem 503, e o smoke não
+                  # conseguiria exercitar o caminho real de login e escrita.
+                  # A senha é sorteada a cada execução e nunca sai do runner.
+                  SENHA="ci-$(openssl rand -hex 12)"
+                  export ADMIN_SENHA_HASH="$(node -e "console.log(require('./src/auth/sessao').gerarHashDeSenha(process.argv[1]))" "$SENHA")"
+                  export SESSAO_SEGREDO="$(openssl rand -hex 32)"
+
                   # O trap garante que o servidor morre mesmo quando uma asserção falha.
                   # Sem ele, o runner encerrava com "Terminate orphan process: npm start".
                   node server.js & SERVIDOR=$!
@@ -61,17 +69,45 @@ jobs:
                     sleep 1
                   done
 
+                  codigo() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+
+                  echo "--- leitura pública"
                   curl -sf http://localhost:3000/health | tee /dev/stderr | grep -q '"status":"ok"'
+                  test "$(codigo http://localhost:3000/produtos)" = "200"
+                  test "$(codigo http://localhost:3000/produtos/1)" = "200"
+                  test "$(codigo http://localhost:3000/produtos/categorias)" = "200"
+                  test "$(codigo http://localhost:3000/produtos/999999)" = "404"
+                  test "$(codigo http://localhost:3000/produtos/abc)" = "400"
 
-                  # A busca sem 'tipo' precisa responder 400, e o servidor continuar no ar.
+                  echo "--- a busca sem tipo responde 400, e o servidor sobrevive"
                   # Antes da correção do item P0-1, este pedido matava o processo.
-                  test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:3000/produtos/buscar?termo=41')" = "400"
+                  test "$(codigo 'http://localhost:3000/produtos/buscar?termo=41')" = "400"
+                  curl -sf http://localhost:3000/health > /dev/null
 
-                  # O POST sem corpo válido precisa responder 400.
-                  test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/produtos \
+                  echo "--- escrita sem sessão responde 401"
+                  test "$(codigo -X POST http://localhost:3000/produtos \
+                    -H 'Content-Type: application/json' -d '{}')" = "401"
+                  test "$(codigo -X DELETE http://localhost:3000/produtos/1)" = "401"
+                  # O 401 não pode ter apagado nada.
+                  test "$(codigo http://localhost:3000/produtos/1)" = "200"
+
+                  echo "--- login"
+                  test "$(codigo -X POST http://localhost:3000/auth/login \
+                    -H 'Content-Type: application/json' -d "{\"senha\":\"errada-de-proposito\"}")" = "401"
+                  test "$(curl -s -c /tmp/ci-cookies -o /dev/null -w '%{http_code}' \
+                    -X POST http://localhost:3000/auth/login \
+                    -H 'Content-Type: application/json' -d "{\"senha\":\"$SENHA\"}")" = "200"
+
+                  echo "--- escrita com sessão"
+                  # Corpo vazio precisa responder 400, e não 401 nem 503.
+                  test "$(curl -s -b /tmp/ci-cookies -o /dev/null -w '%{http_code}' \
+                    -X POST http://localhost:3000/produtos \
                     -H 'Content-Type: application/json' -d '{}')" = "400"
+                  test "$(curl -s -b /tmp/ci-cookies -o /dev/null -w '%{http_code}' \
+                    -X POST http://localhost:3000/produtos -H 'Content-Type: application/json' \
+                    -d '{"nome":"Smoke CI","categoria":"Bota","publico":"Unissex","numeracao":"42","quantidade":1}')" = "201"
 
-                  # O processo tem de estar vivo depois de tudo.
+                  echo "--- o processo tem de estar vivo no fim"
                   curl -sf http://localhost:3000/health > /dev/null
 
     frontend:
