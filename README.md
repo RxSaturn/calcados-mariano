@@ -31,11 +31,25 @@ Este repositório dá à loja um controle de estoque por software. O sistema reg
 
 Este documento não descreve como a loja controla o estoque hoje. O time ainda não levantou essa informação.
 
-**API de estoque (`server.js` e `src/`). Este é o núcleo do produto.** Um servidor Express que expõe três rotas HTTP sobre a tabela `produtos`. A API lista o estoque, busca produtos por nome, categoria ou numeração, e cadastra um produto novo. Cada produto guarda numeração, quantidade e situação de estoque.
+O sistema tem **dois públicos**, e por isso duas telas.
 
-**Painel web (`painel-estoque/`).** Uma página única em React que consome a API. Ela mostra o estoque em tabela, com nome, categoria, numeração, quantidade e situação. As linhas com quantidade no limite ou abaixo recebem destaque, porque avisar sobre falta é o motivo de existir do sistema. A página traz também a busca e o formulário de cadastro.
+**A vitrine (`/`), para quem vem da rua.** Mostra os calçados que a loja tem em
+estoque, com numeração e cor, e leva a conversa para o WhatsApp com a mensagem
+já preenchida. Ela **não vende, não cobra e não coleta dado nenhum** — a venda
+continua no atendimento, presencial ou pelo WhatsApp. A tela não promete nada
+diferente disso, e há teste garantindo que ela não volte a prometer.
 
-O usuário do sistema é o dono da loja, não o cliente final. O projeto não tem carrinho e não tem pagamento online. A venda continua no atendimento presencial.
+**O painel (`/admin`), para quem cuida do estoque.** Lista o que tem, destaca o
+que está acabando, e permite cadastrar, editar e remover. Pede senha, porque
+quem entra ali muda o estoque da loja. A senha é definida na instalação e não
+tem valor padrão.
+
+**A API (`server.js` e `src/`).** Um servidor Express sobre a tabela `produtos`,
+com listagem filtrada e paginada, busca, cadastro, edição e remoção. Leitura é
+pública, porque a vitrine é pública; escrita exige sessão.
+
+Em produção **um processo só entrega as duas telas e a API**, na mesma porta. É
+o que faz a instalação na máquina da loja caber num comando.
 
 ---
 
@@ -81,47 +95,43 @@ node -v
 npm -v
 ```
 
-O backend e o frontend são dois projetos npm separados. Cada um tem o seu próprio `package.json` e o seu próprio `package-lock.json`. Você instala as dependências duas vezes.
+O backend e as telas são dois projetos npm: a raiz e `web/`. Em produção, porém,
+**um processo só entrega tudo**, e a instalação é um comando.
 
 ---
 
 ## Instalação
 
-1. Clone o repositório e entre na pasta:
+Na máquina onde o sistema vai rodar:
 
-   ```bash
-   git clone https://github.com/RxSaturn/calcados-mariano.git
-   cd calcados-mariano
-   ```
+```bash
+git clone https://github.com/RxSaturn/calcados-mariano.git
+cd calcados-mariano
+npm run instalar
+```
 
-2. Instale as dependências do backend:
+O comando faz seis passos e para no primeiro que falhar: confere o Node, instala
+as dependências dos dois lados, cria o `.env`, **pede a senha do painel sem
+mostrá-la na tela**, prepara o banco e compila as telas.
 
-   ```bash
-   npm install
-   ```
+A senha é obrigatória e não tem padrão. Sem ela o painel sobe e recusa todo
+cadastro com `503` — e essa é uma falha que só aparece quando o dono da loja
+tenta usar, dias depois.
 
-3. Crie o banco de dados:
+Para instalar sem ninguém no terminal, as respostas podem vir do ambiente:
 
-   ```bash
-   npm run db:setup
-   ```
-
-4. Instale as dependências do frontend:
-
-   ```bash
-   cd painel-estoque
-   npm install
-   cd ..
-   ```
+```bash
+INSTALAR_SENHA='uma senha de verdade' INSTALAR_PORTA=3000 npm run instalar
+```
 
 ### Sobre o banco de dados
 
 O arquivo `calcados_mariano.db` **não** vem no repositório. O comando `npm run db:setup` o cria a partir de dois arquivos SQL versionados:
 
-| Arquivo         | Conteúdo                                                  |
-| --------------- | --------------------------------------------------------- |
-| `db/schema.sql` | A estrutura da tabela `produtos` e os índices.            |
-| `db/seed.sql`   | Treze calçados de exemplo, para o banco não nascer vazio. |
+| Arquivo         | Conteúdo                                               |
+| --------------- | ------------------------------------------------------ |
+| `db/schema.sql` | A estrutura da tabela `produtos` e os índices.         |
+| `db/seed.sql`   | Os calçados de exemplo, para o banco não nascer vazio. |
 
 O comando não apaga dados. Quando a tabela já tem produtos, ele avisa e não altera nada. Para recarregar os dados de exemplo e descartar o que existe, use `npm run db:setup -- --reset`.
 
@@ -131,7 +141,44 @@ Um clone que não roda este comando fica com um banco vazio, e as rotas de produ
 
 ## Execução
 
-O backend e o frontend rodam em terminais separados.
+### Na máquina da loja
+
+```bash
+npm start
+```
+
+Um processo só, uma porta só:
+
+| Endereço                      | O que é                             |
+| :---------------------------- | :---------------------------------- |
+| `http://localhost:3000`       | a vitrine, aberta a quem vem da rua |
+| `http://localhost:3000/admin` | o painel de estoque, que pede senha |
+
+Em Windows, `deploy/iniciar-sistema.bat` faz isso com dois cliques e abre o
+navegador. Copiado para a pasta que aparece ao digitar `shell:startup`, ele liga
+o sistema sozinho quando o computador liga.
+
+### Cópia de segurança
+
+```bash
+npm run backup
+```
+
+Guarda o estoque em `backups/`, mantendo as 14 últimas. Pode rodar com o sistema
+no ar: a cópia é feita pelo próprio SQLite e sai consistente.
+
+A cópia é conferida por dentro antes de ser guardada — os produtos são contados
+contra o banco de origem. Uma cópia que não bate é apagada, porque cópia ruim é
+pior que nenhuma: quem a vê na pasta acredita estar protegido.
+
+Para restaurar: feche o sistema, copie o arquivo escolhido de `backups/` para a
+raiz com o nome `calcados_mariano.db`, e ligue de novo. Em Windows,
+`deploy/copia-de-seguranca.bat` traz esse passo a passo no cabeçalho.
+
+### Em desenvolvimento
+
+Aqui sim são dois terminais, e é de propósito: o Vite recarrega a tela a cada
+alteração.
 
 ### Backend
 
@@ -173,7 +220,7 @@ As variáveis de ambiente ficam documentadas em `.env.example`. Copie o arquivo 
 Em um segundo terminal, execute:
 
 ```bash
-cd painel-estoque
+cd web
 npm run dev
 ```
 
@@ -394,7 +441,7 @@ Cada arquivo de teste cria o seu próprio banco temporário, a partir dos mesmos
 ### Painel
 
 ```bash
-cd painel-estoque
+cd web
 npm test
 ```
 
@@ -446,7 +493,7 @@ calcados-mariano/
 │   ├── produtos.test.js            # As três rotas, pela camada HTTP.
 │   └── produtoModel.test.js        # O model, sem HTTP.
 │
-├── painel-estoque/                 # Projeto npm separado. O painel em React.
+├── web/                 # Projeto npm separado. O painel em React.
 │   ├── index.html                  # Documento raiz que o Vite serve.
 │   ├── vite.config.js              # Configuração do Vite, com o proxy para a API.
 │   ├── vitest.config.js            # Configuração dos testes do painel.
@@ -488,7 +535,7 @@ Esta lista descreve o estado real do código. O arquivo [`docs/ROADMAP.md`](docs
 | 2   | Não existe rota para editar nem para remover produto. O painel só lista, busca e cadastra.                            | Médio. A correção de um erro de digitação exige SQL na mão. |
 | 3   | O painel não tem paginação. Ele carrega o estoque inteiro em uma chamada.                                             | Baixo hoje, com 13 produtos. Cresce com o catálogo.         |
 | 4   | A tabela `produtos` tem as colunas `subcategoria`, `marca`, `cor` e `descricao`, e nada as preenche.                  | Baixo. Colunas mortas no esquema.                           |
-| 5   | Os dados da loja ficam em `painel-estoque/src/config.js`, e não em variável de ambiente.                              | Baixo. Precisa sair do código antes de qualquer publicação. |
+| 5   | Os dados da loja ficam em `web/src/config.js`, e não em variável de ambiente.                                         | Baixo. Precisa sair do código antes de qualquer publicação. |
 | 6   | O `status_estoque` é texto livre no banco. O formulário oferece três opções, mas a API aceita qualquer texto.         | Baixo. Permite valor fora do padrão via API.                |
 
 ## Licença
