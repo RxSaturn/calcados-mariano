@@ -159,9 +159,18 @@ function App() {
   async function encerrarSessao() {
     try {
       await sair();
+    } catch {
+      // A falha é engolida de propósito, e não por descuido. A tela volta ao
+      // login de qualquer jeito, então não há o que a pessoa possa fazer com
+      // essa mensagem.
+      //
+      // Sem este `catch`, o `finally` sozinho deixava a falha escapar: o React
+      // não espera o retorno do onClick, e a rejeição virava erro não tratado
+      // no navegador — sobre uma situação que já estava resolvida na tela.
     } finally {
-      // Mesmo que a chamada falhe, a tela volta ao login: quem clicou em sair
-      // quer sair, e deixar o painel aberto seria o oposto do pedido.
+      // Quem clicou em sair quer sair, e deixar o painel aberto seria o oposto
+      // do pedido. Numa máquina de loja, é a tela ficando à mostra de quem
+      // passar.
       setTemSessao(false);
     }
   }

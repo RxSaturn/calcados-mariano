@@ -122,7 +122,12 @@ async function conferir(destino) {
         naCopia = await contarProdutos(destino);
     } catch (erro) {
         fs.unlinkSync(destino);
-        throw new Error(`A cópia saiu ilegível e foi descartada: ${erro.message}`);
+        // `cause` leva o erro original junto. A mensagem daqui diz o que houve
+        // com a cópia; a causa diz o que o SQLite reclamou, e sem ela quem for
+        // investigar perde a única pista concreta.
+        throw new Error(`A cópia saiu ilegível e foi descartada: ${erro.message}`, {
+            cause: erro
+        });
     }
 
     if (naCopia !== noBanco) {
