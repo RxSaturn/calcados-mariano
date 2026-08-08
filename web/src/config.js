@@ -20,11 +20,30 @@ export const TIPOS_DE_BUSCA = [
   { valor: 'numeracao', rotulo: 'Numeração' }
 ];
 
+// As ordenações que a rota GET /produtos aceita no parâmetro 'ordenar'. Precisa casar
+// com a tabela ORDENACOES em src/models/ProdutoModel.js: um valor fora dela faz a API
+// responder 400, em vez de cair no padrão em silêncio.
+export const ORDENACOES = [
+  { valor: 'nome', rotulo: 'Nome: A - Z' },
+  { valor: 'nome_desc', rotulo: 'Nome: Z - A' },
+  { valor: 'recentes', rotulo: 'Cadastrados por último' },
+  { valor: 'quantidade', rotulo: 'Menor estoque' },
+  { valor: 'quantidade_desc', rotulo: 'Maior estoque' }
+];
+
+// Número de WhatsApp da loja, em formato internacional e só com dígitos, porque é isso
+// que o endereço wa.me aceita. Antes deste valor, o número estava fixo no meio do
+// componente da vitrine, e trocá-lo exigia mexer no código da tela.
+export const WHATSAPP = import.meta.env.VITE_WHATSAPP || '553798414547';
+
 // Dados da loja. Ficam aqui, e não dentro de um componente, para sair do código quando
 // o time decidir o licenciamento. Veja a seção de licença no README.
 export const LOJA = {
   nome: 'Calçados Mariano',
   descricao: 'Controle de estoque das duas unidades',
+  cidade: 'Bambuí (MG)',
+  // O mesmo número de WHATSAPP, escrito como as pessoas leem.
+  whatsappVisivel: '(37) 9841-4547',
   unidades: [
     { rotulo: 'Matriz', telefone: '(37) 3431-2762' },
     { rotulo: 'Filial', telefone: '(37) 3431-2270' }
