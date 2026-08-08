@@ -1,4 +1,4 @@
-import { LOJA } from '../config';
+import { LOJA } from '../../config';
 
 // Rodapé do painel. Os telefones vêm de src/config.js, e não de dentro do componente.
 function Footer() {

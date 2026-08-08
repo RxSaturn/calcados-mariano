@@ -1,4 +1,4 @@
-import { LOJA } from '../config';
+import { LOJA } from '../../config';
 
 // Cabeçalho do painel. Mostra o nome da loja e um resumo do estoque carregado.
 function Header({ total, totalBaixo }) {

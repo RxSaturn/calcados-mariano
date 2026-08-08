@@ -14,6 +14,6 @@
 
 - [ ] `npm run lint` e `npm run format:check` passam na raiz
 - [ ] `npm test` passa na raiz
-- [ ] `npm run lint`, `npm test` e `npm run build` passam em `painel-estoque/`
+- [ ] `npm run lint`, `npm test` e `npm run build` passam em `web/`
 - [ ] Toda correção de defeito ganhou um teste que falha sem ela
 - [ ] README, roadmap e CHANGELOG acompanham a mudança

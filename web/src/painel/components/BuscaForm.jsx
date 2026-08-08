@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TIPOS_DE_BUSCA } from '../config';
+import { TIPOS_DE_BUSCA } from '../../config';
 
 // Formulário de busca. O seletor de 'tipo' existe porque a rota GET /produtos/buscar
 // exige esse parâmetro. Um pedido sem ele responde 400.

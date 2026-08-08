@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import './App.css';
+import './vitrine.css';
 
 function App() {
   const [todosProdutos, setTodosProdutos] = useState([]);

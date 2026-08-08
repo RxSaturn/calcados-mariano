@@ -1,6 +1,6 @@
 node_modules
 package-lock.json
-painel-estoque/package-lock.json
-painel-estoque/dist
+web/package-lock.json
+web/dist
 coverage
 *.db

@@ -1,4 +1,4 @@
-import { LIMITE_ESTOQUE_BAIXO } from '../config';
+import { LIMITE_ESTOQUE_BAIXO } from '../../config';
 
 // Uma linha da tabela de estoque. A linha recebe destaque quando a quantidade está no
 // limite ou abaixo dele, porque avisar sobre falta é o motivo de existir do sistema.

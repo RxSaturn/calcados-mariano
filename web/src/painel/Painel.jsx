@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import './App.css';
+import './Painel.css';
 
 import Header from './components/Header';
 import BuscaForm from './components/BuscaForm';
@@ -7,8 +7,8 @@ import EstoqueTable from './components/EstoqueTable';
 import ProdutoForm from './components/ProdutoForm';
 import Footer from './components/Footer';
 
-import { adicionarProduto, buscarProdutos, listarProdutos } from './api/produtos';
-import { LIMITE_ESTOQUE_BAIXO } from './config';
+import { adicionarProduto, buscarProdutos, listarProdutos } from '../api/produtos';
+import { LIMITE_ESTOQUE_BAIXO } from '../config';
 
 // Painel de estoque. Este componente só compõe a tela e guarda o estado. Cada parte da
 // interface vive em src/components.

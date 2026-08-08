@@ -2,12 +2,12 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 // Configuração do ESLint para o backend. Antes deste arquivo, o ESLint cobria só a
-// pasta painel-estoque, e o backend não tinha linter nenhum.
+// pasta web, e o backend não tinha linter nenhum.
 export default [
     {
         ignores: [
             'node_modules/**',
-            'painel-estoque/**', // Tem a sua própria configuração de ESLint.
+            'web/**', // Tem a sua própria configuração de ESLint.
             'coverage/**'
         ]
     },

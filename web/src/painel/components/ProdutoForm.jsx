@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { PUBLICOS } from '../config';
+import { PUBLICOS } from '../../config';
 
 const VAZIO = {
   nome: '',

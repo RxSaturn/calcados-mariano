@@ -11,7 +11,10 @@ export default defineConfig({
     // caminho. Em produção, aponte VITE_API_URL para a URL real da API.
     proxy: {
       '/produtos': 'http://localhost:3000',
-      '/health': 'http://localhost:3000'
+      '/health': 'http://localhost:3000',
+      // A sessão do painel vive num cookie que a API escreve. Sem o proxy, o
+      // navegador trataria a chamada como outra origem e não mandaria o cookie.
+      '/auth': 'http://localhost:3000'
     }
   }
 });
