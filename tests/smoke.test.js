@@ -32,12 +32,13 @@ describe('smoke', () => {
         expect(resposta.body.produtos).toBe(contarProdutosDaCarga());
     });
 
-    it('GET /produtos responde 200 com um array', async () => {
+    it('GET /produtos responde 200 com o envelope da listagem', async () => {
         const resposta = await request(app).get('/produtos');
 
         expect(resposta.status).toBe(200);
-        expect(Array.isArray(resposta.body)).toBe(true);
-        expect(resposta.body).toHaveLength(contarProdutosDaCarga());
+        expect(Array.isArray(resposta.body.produtos)).toBe(true);
+        expect(resposta.body.produtos).toHaveLength(contarProdutosDaCarga());
+        expect(resposta.body.total).toBe(contarProdutosDaCarga());
     });
 
     it('GET / responde 200 com texto puro', async () => {

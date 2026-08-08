@@ -16,7 +16,18 @@ const origensAceitas = (process.env.CORS_ORIGINS || '')
     .map((origem) => origem.trim())
     .filter((origem) => origem !== '');
 
-app.use(cors(origensAceitas.length > 0 ? { origin: origensAceitas } : {}));
+// credentials: true é necessário porque a sessão do painel viaja em cookie. O padrão do
+// CORS não envia cookie entre origens diferentes.
+//
+// Sem CORS_ORIGINS, o servidor aceita qualquer origem e NÃO libera credencial. Isso é
+// proposital: o navegador proíbe origem coringa junto com credencial, e em
+// desenvolvimento o proxy do Vite deixa tudo na mesma origem, portanto o cookie funciona
+// sem CORS entrar no caminho.
+app.use(
+    cors(
+        origensAceitas.length > 0 ? { origin: origensAceitas, credentials: true } : { origin: true }
+    )
+);
 
 // Puxando a conexão com o banco de dados para ele ser inicializado
 require('./config/db');
@@ -32,10 +43,12 @@ app.get('/', (req, res) => {
 
 // Importando os arquivos de rotas
 const healthRoutes = require('./routes/healthRoutes');
+const authRoutes = require('./routes/authRoutes');
 const produtoRoutes = require('./routes/produtoRoutes');
 
 // Avisando ao servidor para usar essas rotas
 app.use('/', healthRoutes);
+app.use('/', authRoutes);
 app.use('/', produtoRoutes);
 
 // Este arquivo monta o app e para aí. Ele não chama app.listen de propósito.

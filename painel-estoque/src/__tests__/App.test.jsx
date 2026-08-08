@@ -28,9 +28,20 @@ const PRODUTOS = [
   }
 ];
 
+// A API devolve o envelope da listagem, e não um array cru, porque a tela precisa do
+// total para montar a paginação. Este helper monta um envelope de teste, para o formato
+// ficar em um lugar só.
+const envelope = (produtos) => ({
+  produtos,
+  total: produtos.length,
+  pagina: 1,
+  limite: 50,
+  paginas: produtos.length === 0 ? 0 : 1
+});
+
 beforeEach(() => {
   vi.resetAllMocks();
-  api.listarProdutos.mockResolvedValue(PRODUTOS);
+  api.listarProdutos.mockResolvedValue(envelope(PRODUTOS));
 });
 
 describe('App', () => {
@@ -82,14 +93,14 @@ describe('App', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Servidor fora do ar.');
 
-    api.listarProdutos.mockResolvedValue(PRODUTOS);
+    api.listarProdutos.mockResolvedValue(envelope(PRODUTOS));
     await userEvent.click(screen.getByRole('button', { name: /Tentar de novo/i }));
 
     expect(await screen.findByText('Bota Texana')).toBeInTheDocument();
   });
 
   it('mostra aviso quando a lista vem vazia', async () => {
-    api.listarProdutos.mockResolvedValue([]);
+    api.listarProdutos.mockResolvedValue(envelope([]));
     render(<App />);
 
     expect(await screen.findByText(/Nenhum produto encontrado/i)).toBeInTheDocument();
@@ -136,6 +147,7 @@ describe('cadastro', () => {
   const preencher = async () => {
     await userEvent.type(screen.getByLabelText('Nome'), 'Bota Nova');
     await userEvent.type(screen.getByLabelText('Categoria'), 'Bota');
+    await userEvent.selectOptions(screen.getByLabelText('Público'), 'Feminino');
     await userEvent.type(screen.getByLabelText('Numeração'), '42');
     await userEvent.type(screen.getByLabelText('Quantidade'), '5');
   };
@@ -152,6 +164,7 @@ describe('cadastro', () => {
       expect(api.adicionarProduto).toHaveBeenCalledWith({
         nome: 'Bota Nova',
         categoria: 'Bota',
+        publico: 'Feminino',
         numeracao: '42',
         quantidade: 5, // número, e não o texto '5'
         status_estoque: 'Em estoque'

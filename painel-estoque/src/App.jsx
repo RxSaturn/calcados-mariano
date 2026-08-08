@@ -27,7 +27,9 @@ function App() {
     setErro('');
     setFiltro(null);
     try {
-      setProdutos(await listarProdutos());
+      // listarProdutos devolve o envelope { produtos, total, ... }.
+      const resposta = await listarProdutos();
+      setProdutos(resposta.produtos);
     } catch (falha) {
       setErro(falha.message);
       setProdutos([]);
@@ -44,8 +46,8 @@ function App() {
 
     (async () => {
       try {
-        const lista = await listarProdutos();
-        if (ativo) setProdutos(lista);
+        const resposta = await listarProdutos();
+        if (ativo) setProdutos(resposta.produtos);
       } catch (falha) {
         if (ativo) setErro(falha.message);
       } finally {

@@ -1,14 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const ProdutoController = require('../controllers/ProdutoController');
+const exigirAutenticacao = require('../middlewares/exigirAutenticacao');
 
-// Rota 1: Mostrar todos os produtos
-router.get('/produtos', ProdutoController.listarProdutos);
+// A ORDEM DESTAS ROTAS IMPORTA.
+//
+// '/produtos/buscar' e '/produtos/categorias' vêm antes de '/produtos/:id'. O Express
+// casa a primeira rota compatível, portanto, na ordem inversa, ele trataria as palavras
+// "buscar" e "categorias" como se fossem um id e o pedido cairia no lugar errado.
 
-// Rota 2: Pesquisar produtos (Atenção: essa rota precisa vir ANTES da rota de adicionar para não dar conflito)
+// ---- Leitura. Pública, porque a vitrine é pública. ----
+
+// Pesquisa por nome, categoria ou numeração.
 router.get('/produtos/buscar', ProdutoController.buscarProdutos);
 
-// Rota 3: Adicionar um produto (Usa POST, pois estamos ENVIANDO dados para salvar)
-router.post('/produtos', ProdutoController.adicionarProduto);
+// Opções de filtro, lidas do banco.
+router.get('/produtos/categorias', ProdutoController.listarOpcoesDeFiltro);
+
+// Lista com filtro, ordenação e paginação.
+router.get('/produtos', ProdutoController.listarProdutos);
+
+// Um produto pelo id. Precisa vir depois das duas rotas de palavra fixa acima.
+router.get('/produtos/:id', ProdutoController.mostrarProduto);
+
+// ---- Escrita. Exige sessão do dono da loja. ----
+
+router.post('/produtos', exigirAutenticacao, ProdutoController.adicionarProduto);
+router.put('/produtos/:id', exigirAutenticacao, ProdutoController.atualizarProduto);
+router.delete('/produtos/:id', exigirAutenticacao, ProdutoController.removerProduto);
 
 module.exports = router;

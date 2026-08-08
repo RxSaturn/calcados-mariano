@@ -6,12 +6,13 @@
   "private": true,
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "db:setup": "node db/setup.js",
+    "auth:hash": "node db/hash-senha.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

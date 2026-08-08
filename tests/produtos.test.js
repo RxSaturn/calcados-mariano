@@ -3,29 +3,41 @@
 
 const request = require('supertest');
 const { criarBancoDeTeste, contarProdutosDaCarga } = require('./helpers/bancoDeTeste');
+const {
+    configurarAutenticacao,
+    desconfigurarAutenticacao,
+    obterCookie
+} = require('./helpers/sessaoDeTeste');
 
 let app;
 let banco;
+let cookie;
 const TOTAL_DA_CARGA = contarProdutosDaCarga();
 
 beforeAll(async () => {
     banco = await criarBancoDeTeste();
+    const senha = configurarAutenticacao();
     app = require('../src/app');
+    // As rotas de escrita exigem sessão. A leitura continua pública.
+    cookie = await obterCookie(request, app, senha);
 });
 
-afterAll(() => banco.limpar());
+afterAll(() => {
+    desconfigurarAutenticacao();
+    banco.limpar();
+});
 
 describe('GET /produtos', () => {
     it('lista todos os produtos da carga inicial', async () => {
         const resposta = await request(app).get('/produtos');
 
         expect(resposta.status).toBe(200);
-        expect(resposta.body).toHaveLength(TOTAL_DA_CARGA);
+        expect(resposta.body.produtos).toHaveLength(TOTAL_DA_CARGA);
     });
 
     it('devolve as colunas de estoque em cada produto', async () => {
         const resposta = await request(app).get('/produtos');
-        const produto = resposta.body[0];
+        const produto = resposta.body.produtos[0];
 
         expect(produto).toHaveProperty('id');
         expect(produto).toHaveProperty('nome');
@@ -40,7 +52,7 @@ describe('GET /produtos', () => {
         // 'Em estoque ', e esses espaços quebram filtro por igualdade exata.
         const resposta = await request(app).get('/produtos');
 
-        for (const produto of resposta.body) {
+        for (const produto of resposta.body.produtos) {
             for (const campo of ['nome', 'numeracao', 'categoria', 'status_estoque']) {
                 const valor = produto[campo];
                 if (typeof valor === 'string') {
@@ -139,16 +151,17 @@ describe('POST /produtos', () => {
         const novo = {
             nome: 'Tênis de Teste',
             categoria: 'Teste',
+            publico: 'Unissex',
             quantidade: 5,
             status_estoque: 'Em estoque',
             numeracao: '43'
         };
 
-        const criacao = await request(app).post('/produtos').send(novo);
+        const criacao = await request(app).post('/produtos').set('Cookie', cookie).send(novo);
         expect(criacao.status).toBe(201);
 
-        const lista = await request(app).get('/produtos');
-        const gravado = lista.body.find((p) => p.nome === novo.nome);
+        const lista = await request(app).get('/produtos?limite=100');
+        const gravado = lista.body.produtos.find((p) => p.nome === novo.nome);
 
         expect(gravado).toBeDefined();
         expect(gravado.quantidade).toBe(novo.quantidade);
@@ -157,15 +170,16 @@ describe('POST /produtos', () => {
     });
 
     it('responde 400 quando o corpo está vazio', async () => {
-        const resposta = await request(app).post('/produtos').send({});
+        const resposta = await request(app).post('/produtos').set('Cookie', cookie).send({});
 
         expect(resposta.status).toBe(400);
         expect(resposta.body.mensagem).toBeDefined();
     });
 
     it('responde 400 quando falta o nome', async () => {
-        const resposta = await request(app).post('/produtos').send({
+        const resposta = await request(app).post('/produtos').set('Cookie', cookie).send({
             categoria: 'Teste',
+            publico: 'Unissex',
             quantidade: 1,
             status_estoque: 'Em estoque',
             numeracao: '40'
@@ -175,9 +189,10 @@ describe('POST /produtos', () => {
     });
 
     it('responde 400 quando a quantidade não é um número', async () => {
-        const resposta = await request(app).post('/produtos').send({
+        const resposta = await request(app).post('/produtos').set('Cookie', cookie).send({
             nome: 'Produto Ruim',
             categoria: 'Teste',
+            publico: 'Unissex',
             quantidade: 'muitos',
             status_estoque: 'Em estoque',
             numeracao: '40'

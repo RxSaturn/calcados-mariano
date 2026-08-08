@@ -5,6 +5,7 @@ const sqlite3 = require('sqlite3');
 
 const RAIZ = path.join(__dirname, '..', '..');
 const ARQUIVO_ESQUEMA = path.join(RAIZ, 'db', 'schema.sql');
+const ARQUIVO_INDICES = path.join(RAIZ, 'db', 'indexes.sql');
 const ARQUIVO_CARGA = path.join(RAIZ, 'db', 'seed.sql');
 
 // Cria um banco temporário a partir dos mesmos arquivos SQL que o npm run db:setup usa.
@@ -24,7 +25,10 @@ const criarBancoDeTeste = async ({ comDados = true } = {}) => {
             banco.exec(sql, (erro) => (erro ? falha(erro) : ok()));
         });
 
+    // Mesma ordem do db/setup.js: tabela, depois índices. O banco de teste nasce
+    // com as colunas todas, portanto não precisa do passo de migração.
     await executar(fs.readFileSync(ARQUIVO_ESQUEMA, 'utf8'));
+    await executar(fs.readFileSync(ARQUIVO_INDICES, 'utf8'));
     if (comDados) {
         await executar(fs.readFileSync(ARQUIVO_CARGA, 'utf8'));
     }

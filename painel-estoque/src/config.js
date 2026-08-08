@@ -9,6 +9,10 @@ export const URL_API = import.meta.env.VITE_API_URL || '';
 // destaque na tabela. Este é o motivo de existir do sistema.
 export const LIMITE_ESTOQUE_BAIXO = Number(import.meta.env.VITE_ESTOQUE_BAIXO) || 10;
 
+// Públicos aceitos pela API, na coluna publico. Precisa casar com a tabela PUBLICOS em
+// src/models/ProdutoModel.js. Um valor fora da lista faz o cadastro responder 400.
+export const PUBLICOS = ['Masculino', 'Feminino', 'Infantil', 'Unissex'];
+
 // Os tipos que a rota GET /produtos/buscar aceita no parâmetro 'tipo'.
 export const TIPOS_DE_BUSCA = [
   { valor: 'nome', rotulo: 'Nome' },
