@@ -42,6 +42,9 @@ const envelope = (produtos) => ({
 beforeEach(() => {
   vi.resetAllMocks();
   api.listarProdutos.mockResolvedValue(envelope(PRODUTOS));
+  // O painel só monta com sessão ativa. Sem isto, todos os testes daqui veriam
+  // o formulário de login, e não a tela que eles querem conferir.
+  api.obterSessao.mockResolvedValue({ autenticado: true });
 });
 
 describe('App', () => {

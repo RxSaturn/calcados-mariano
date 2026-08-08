@@ -6,8 +6,15 @@ import BuscaForm from './components/BuscaForm';
 import EstoqueTable from './components/EstoqueTable';
 import ProdutoForm from './components/ProdutoForm';
 import Footer from './components/Footer';
+import LoginForm from './components/LoginForm';
 
-import { adicionarProduto, buscarProdutos, listarProdutos } from '../api/produtos';
+import {
+  adicionarProduto,
+  buscarProdutos,
+  listarProdutos,
+  obterSessao,
+  sair
+} from '../api/produtos';
 import { LIMITE_ESTOQUE_BAIXO } from '../config';
 
 // Painel de estoque. Este componente só compõe a tela e guarda o estado. Cada parte da
@@ -21,6 +28,33 @@ function App() {
   const [erro, setErro] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [filtro, setFiltro] = useState(null);
+  // null enquanto o servidor ainda não respondeu quem é. Sem esse terceiro
+  // estado, a tela piscaria o formulário de login para quem já está logado.
+  const [temSessao, setTemSessao] = useState(null);
+
+  useEffect(() => {
+    let ativo = true;
+    obterSessao()
+      .then((s) => ativo && setTemSessao(Boolean(s?.autenticado)))
+      .catch(() => ativo && setTemSessao(false));
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  /*
+   * A sessão dura oito horas e pode acabar no meio do expediente. Quando isso
+   * acontece, uma escrita volta 401 e o certo é pedir a senha de novo: mostrar
+   * "erro ao cadastrar" faria o dono repetir o cadastro achando que o produto
+   * tem algum problema, quando o que venceu foi a sessão.
+   */
+  const tratarFalha = useCallback((falha) => {
+    if (falha.status === 401) {
+      setTemSessao(false);
+      return true;
+    }
+    return false;
+  }, []);
 
   const carregarTudo = useCallback(async () => {
     setCarregando(true);
@@ -31,12 +65,12 @@ function App() {
       const resposta = await listarProdutos();
       setProdutos(resposta.produtos);
     } catch (falha) {
-      setErro(falha.message);
+      if (!tratarFalha(falha)) setErro(falha.message);
       setProdutos([]);
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [tratarFalha]);
 
   // A carga inicial não reaproveita carregarTudo de propósito. Aqui o estado só muda
   // depois do await, e a flag 'ativo' evita atualizar estado de um componente que já
@@ -75,7 +109,14 @@ function App() {
   };
 
   const cadastrar = async (produto) => {
-    await adicionarProduto(produto);
+    try {
+      await adicionarProduto(produto);
+    } catch (falha) {
+      // A sessão vencida volta ao login; o resto sobe para o formulário mostrar
+      // os erros de validação campo a campo.
+      if (tratarFalha(falha)) return;
+      throw falha;
+    }
     // Recarrega a lista para o produto novo aparecer com o id que o banco gerou.
     await carregarTudo();
   };
@@ -85,9 +126,27 @@ function App() {
     [produtos]
   );
 
+  async function encerrarSessao() {
+    try {
+      await sair();
+    } finally {
+      // Mesmo que a chamada falhe, a tela volta ao login: quem clicou em sair
+      // quer sair, e deixar o painel aberto seria o oposto do pedido.
+      setTemSessao(false);
+    }
+  }
+
+  if (temSessao === null) {
+    return <p className="painel-aguardando">Carregando o painel...</p>;
+  }
+
+  if (!temSessao) {
+    return <LoginForm aoEntrar={() => setTemSessao(true)} />;
+  }
+
   return (
     <div className="painel">
-      <Header total={produtos.length} totalBaixo={totalBaixo} />
+      <Header total={produtos.length} totalBaixo={totalBaixo} onSair={encerrarSessao} />
 
       <main className="painel-conteudo">
         <section className="estoque">
