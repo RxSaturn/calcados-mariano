@@ -431,14 +431,45 @@ Estes itens não estavam nas três ondas, e a entrega deixou claro que eles impo
 
 ### Onda P3
 
-1. **Autenticação na rota de escrita.** O item P2-2 validou a entrada e restringiu o CORS, e não pediu credencial. Qualquer pessoa que alcance a rede cadastra produto. Enquanto isso não existir, o servidor não vai para a internet.
-2. **Editar e remover produto.** A API só lista, busca e cadastra. Corrigir um erro de digitação hoje exige SQL na mão. Faltam `PUT /produtos/:id` e `DELETE /produtos/:id`, com os testes e a tela.
-3. **Registrar a movimentação de estoque.** O sistema guarda a quantidade atual e não guarda o histórico. Sem isso, ninguém sabe o que saiu, quando, nem de qual unidade.
-4. **Separar as duas unidades.** A loja tem matriz e filial, e a tabela `produtos` não tem coluna de unidade. O estoque de hoje é um número só para as duas lojas.
-5. **Paginação.** O painel carrega o estoque inteiro em uma chamada. Com 13 produtos funciona. Com mil, não.
-6. **Medir a cobertura de teste.** A suíte tem 46 testes e ninguém sabe qual porcentagem do código eles tocam. O `vitest --coverage` responde isso, e um piso na CI evita a queda silenciosa.
-7. **Limpar as colunas mortas.** As colunas `subcategoria`, `marca`, `cor` e `descricao` existem no esquema e nada as preenche. Ou o produto passa a usá-las, ou elas saem.
-8. **Restringir o `status_estoque`.** O campo é texto livre no banco. O formulário oferece três opções, e a API aceita qualquer texto.
+Os oito itens abaixo saíram das ondas anteriores. Seis estão concluídos. O resultado de cada um está registrado.
+
+| #    | Item                            | Estado | Resultado                                                                                       |
+| ---- | ------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| P3-1 | Autenticação na rota de escrita | ✅     | Sessão com cookie `httpOnly` e token HMAC. Sem senha padrão. Escrita responde `401` sem sessão. |
+| P3-2 | Editar e remover produto        | ✅     | `PUT /produtos/:id` e `DELETE /produtos/:id`, com `400`, `404` e `401`.                         |
+| P3-3 | Registrar a movimentação        | ✅     | Tabela `movimentacoes` e três rotas. Todo saldo muda por ali.                                   |
+| P3-4 | Separar as duas unidades        | ✅     | Tabela `estoque`, com chave `(produto_id, unidade)` e migração idempotente.                     |
+| P3-5 | Paginação                       | ✅     | `GET /produtos` devolve envelope com `total`, `pagina`, `limite` e `paginas`.                   |
+| P3-6 | Medir a cobertura de teste      | ✅     | 167 testes. Piso na CI nos dois pacotes. Ver a seção de cobertura no README.                    |
+| P3-7 | Limpar as colunas mortas        | ⚠️     | `marca`, `cor` e `descricao` passaram a ser usadas. `subcategoria` continua morta.              |
+| P3-8 | Restringir o `status_estoque`   | ⚠️     | A movimentação o deriva do saldo. O cadastro ainda aceita texto livre.                          |
+
+#### P3-3 e P3-4. O que a decisão de escopo mudou
+
+O time pediu histórico **só de entrada e saída explícitas**, e não auditoria de todo campo. Essa regra sozinha deixaria um furo: uma edição direta da quantidade mudaria o saldo sem deixar rastro, justamente no caso que mais interessa, que é a correção feita à mão.
+
+A entrega fecha o furo tirando a quantidade do caminho de edição, em vez de aceitar o furo:
+
+- **`PUT /produtos/:id` deixou de alterar a quantidade.** Um corpo que traga `quantidade` ou `status_estoque` recebe `400`, com a rota certa na mensagem. **Isto é mudança de contrato em relação ao ciclo anterior.**
+- **O saldo muda por uma porta só**, que é `POST /produtos/:id/movimentacoes`.
+- **O cadastro grava o saldo de abertura como movimentação**, com o motivo `Cadastro inicial`.
+
+#### O que o time precisa conferir
+
+A migração pôs **todo** o saldo antigo na **Matriz**, com o motivo `Saldo migrado`, e deixou a Filial em zero. O banco anterior guardava um número só e não dizia de qual loja ele era, portanto essa divisão é uma escolha e não um fato.
+
+Confira o saldo real de cada loja e mova o que estiver no lugar errado com `POST /produtos/:id/movimentacoes`, antes de confiar nos números do painel.
+
+### Onda P4
+
+O que sobrou, e o que a Onda P3 abriu.
+
+1. **Tela para editar, remover e movimentar.** As rotas existem e têm teste. O painel ainda não as usa, portanto essas operações hoje pedem `curl`.
+2. **Vitrine pública.** O cliente interessado precisa de um caminho até a loja. A vitrine é esse caminho.
+3. **Conta por usuário.** O sistema tem um credencial só. O histórico diz o que mudou e não diz quem mudou.
+4. **Cópia de segurança do banco.** O banco é um arquivo SQLite, sem cópia automática. Uma perda de arquivo é uma perda de estoque.
+5. **Limpar a coluna `subcategoria`.** Ou o produto passa a usá-la, ou ela sai.
+6. **Restringir o `status_estoque` no cadastro.** O campo aceita texto livre, e a primeira movimentação o sobrescreve com o valor derivado. Um valor próprio não sobrevive.
 
 ### Decisão de produto que continua aberta
 

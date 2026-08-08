@@ -3,6 +3,8 @@ const os = require('os');
 const path = require('path');
 const sqlite3 = require('sqlite3');
 
+const { garantirEstoqueInicial } = require('../../db/estoque-inicial');
+
 const RAIZ = path.join(__dirname, '..', '..');
 const ARQUIVO_ESQUEMA = path.join(RAIZ, 'db', 'schema.sql');
 const ARQUIVO_INDICES = path.join(RAIZ, 'db', 'indexes.sql');
@@ -25,13 +27,19 @@ const criarBancoDeTeste = async ({ comDados = true } = {}) => {
             banco.exec(sql, (erro) => (erro ? falha(erro) : ok()));
         });
 
-    // Mesma ordem do db/setup.js: tabela, depois índices. O banco de teste nasce
-    // com as colunas todas, portanto não precisa do passo de migração.
+    // Mesma ordem do db/setup.js: tabela, índices, carga e abertura do saldo. O banco
+    // de teste nasce com as colunas todas, portanto não precisa do passo de migração.
     await executar(fs.readFileSync(ARQUIVO_ESQUEMA, 'utf8'));
     await executar(fs.readFileSync(ARQUIVO_INDICES, 'utf8'));
     if (comDados) {
         await executar(fs.readFileSync(ARQUIVO_CARGA, 'utf8'));
     }
+
+    // O mesmo passo que o db/setup.js roda. Sem ele, os produtos da carga teriam
+    // produtos.quantidade preenchida e nenhuma linha em estoque, e o teste passaria
+    // num estado que o banco de verdade nunca tem.
+    await garantirEstoqueInicial(banco);
+
     await new Promise((ok) => banco.close(ok));
 
     return {

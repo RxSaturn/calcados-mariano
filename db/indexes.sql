@@ -12,3 +12,7 @@ CREATE INDEX IF NOT EXISTS idx_produtos_publico ON produtos (publico);
 
 -- A listagem ordena por este campo por padrão.
 CREATE INDEX IF NOT EXISTS idx_produtos_nome_ordenacao ON produtos (nome_ordenacao);
+
+-- O histórico de um produto sai do mais recente para o mais antigo. A tabela estoque
+-- não precisa de índice próprio, porque a chave primária já começa por produto_id.
+CREATE INDEX IF NOT EXISTS idx_movimentacoes_produto ON movimentacoes (produto_id, id DESC);

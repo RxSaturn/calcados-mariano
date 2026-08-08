@@ -42,3 +42,43 @@ CREATE TABLE IF NOT EXISTS produtos (
     -- fora de ordem para quem olha. Esta coluna é preenchida na escrita.
     nome_ordenacao TEXT
 );
+
+-- Saldo por unidade da loja.
+--
+-- A loja tem mais de um ponto de venda, e antes desta tabela o sistema guardava um
+-- número só. Quem olhava a tela não sabia em qual loja o par estava, portanto a
+-- resposta ao cliente dependia de uma ligação telefônica.
+--
+-- produtos.quantidade continua existindo, como total desnormalizado. Ela é recalculada
+-- dentro da mesma transação da movimentação, e um teste confere que ela nunca diverge
+-- da soma desta tabela. O motivo de manter as duas: a listagem paginada ordena por
+-- quantidade, e um SUM com JOIN em toda página custaria caro sem ganho.
+--
+-- Os valores aceitos em unidade vivem em src/config/unidades.js.
+CREATE TABLE IF NOT EXISTS estoque (
+    produto_id INTEGER NOT NULL,
+    unidade    TEXT    NOT NULL,   -- 'Matriz' ou 'Filial'
+    quantidade INTEGER NOT NULL DEFAULT 0,
+
+    PRIMARY KEY (produto_id, unidade),
+    FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE CASCADE
+);
+
+-- Histórico de entrada e saída.
+--
+-- Toda mudança de saldo passa por aqui. O PUT do produto NÃO altera a quantidade, de
+-- propósito: se alterasse, o saldo mudaria sem deixar rastro e o histórico teria furo.
+--
+-- A chave estrangeira só vale com PRAGMA foreign_keys = ON, porque o SQLite desliga a
+-- checagem por padrão. O PRAGMA está em src/config/db.js e em db/setup.js.
+CREATE TABLE IF NOT EXISTS movimentacoes (
+    id         INTEGER PRIMARY KEY,
+    produto_id INTEGER NOT NULL,
+    unidade    TEXT    NOT NULL,
+    tipo       TEXT    NOT NULL,   -- 'entrada' ou 'saida'
+    quantidade INTEGER NOT NULL,   -- Sempre positiva. O tipo é que dá o sinal
+    motivo     TEXT,
+    criado_em  TEXT    NOT NULL,   -- ISO 8601 em UTC
+
+    FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE CASCADE
+);

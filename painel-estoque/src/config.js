@@ -13,6 +13,17 @@ export const LIMITE_ESTOQUE_BAIXO = Number(import.meta.env.VITE_ESTOQUE_BAIXO) |
 // src/models/ProdutoModel.js. Um valor fora da lista faz o cadastro responder 400.
 export const PUBLICOS = ['Masculino', 'Feminino', 'Infantil', 'Unissex'];
 
+// Unidades da loja. Precisa casar com src/config/unidades.js no backend. Uma unidade
+// fora da lista faz a movimentação responder 400.
+export const UNIDADES = ['Matriz', 'Filial'];
+
+// Tipos de movimentação de estoque. A quantidade é sempre positiva, e o tipo é que dá
+// o sinal. Precisa casar com TIPOS em src/models/MovimentacaoModel.js.
+export const TIPOS_DE_MOVIMENTACAO = [
+  { valor: 'entrada', rotulo: 'Entrada' },
+  { valor: 'saida', rotulo: 'Saída' }
+];
+
 // Os tipos que a rota GET /produtos/buscar aceita no parâmetro 'tipo'.
 export const TIPOS_DE_BUSCA = [
   { valor: 'nome', rotulo: 'Nome' },

@@ -45,6 +45,14 @@ const criar = (extra = {}) =>
         .set('Cookie', cookie)
         .send({ ...PRODUTO_VALIDO, ...extra });
 
+// Corpo aceito pelo PUT. Ele não leva quantidade, porque o saldo muda só por
+// movimentação. Ver COLUNAS_EDITAVEIS em src/models/ProdutoModel.js.
+const paraEditar = (extra = {}) => {
+    const corpo = { ...PRODUTO_VALIDO, ...extra };
+    delete corpo.quantidade;
+    return corpo;
+};
+
 describe('GET /produtos', () => {
     it('devolve um envelope com produtos, total, pagina, limite e paginas', async () => {
         const { status, body } = await request(app).get('/produtos');
@@ -308,26 +316,58 @@ describe('POST /produtos cobre as colunas todas', () => {
 });
 
 describe('PUT /produtos/:id', () => {
-    it('substitui o produto e devolve 200', async () => {
+    it('substitui os atributos e devolve 200', async () => {
         const criacao = await criar({ nome: 'Antes do PUT' });
 
         const alteracao = await request(app)
             .put(`/produtos/${criacao.body.id}`)
             .set('Cookie', cookie)
-            .send({ ...PRODUTO_VALIDO, nome: 'Depois do PUT', quantidade: 99, cor: 'Azul' });
+            .send(paraEditar({ nome: 'Depois do PUT', cor: 'Azul' }));
 
         expect(alteracao.status).toBe(200);
 
         const { body } = await request(app).get(`/produtos/${criacao.body.id}`);
         expect(body.nome).toBe('Depois do PUT');
-        expect(body.quantidade).toBe(99);
         expect(body.cor).toBe('Azul');
+    });
+
+    it('não altera a quantidade, e recusa um corpo que traga o campo', async () => {
+        // O saldo só muda por movimentação. Aceitar o campo e ignorá-lo daria um 200
+        // que faria a pessoa acreditar que o estoque mudou.
+        const criacao = await criar({ nome: 'Saldo Intocado', quantidade: 7 });
+
+        for (const campo of [{ quantidade: 99 }, { status_estoque: 'Esgotado' }]) {
+            const resposta = await request(app)
+                .put(`/produtos/${criacao.body.id}`)
+                .set('Cookie', cookie)
+                // O campo entra depois de paraEditar, que é justamente quem o tira.
+                .send({ ...paraEditar({ nome: 'Saldo Intocado' }), ...campo });
+
+            expect(resposta.status, JSON.stringify(campo)).toBe(400);
+            expect(resposta.body.erros.join(' ')).toContain('movimentacoes');
+        }
+
+        const { body } = await request(app).get(`/produtos/${criacao.body.id}`);
+        expect(body.quantidade).toBe(7);
+    });
+
+    it('a edição não mexe no saldo por unidade', async () => {
+        const criacao = await criar({ nome: 'Edicao Sem Saldo', quantidade: 4 });
+        const id = criacao.body.id;
+
+        await request(app)
+            .put(`/produtos/${id}`)
+            .set('Cookie', cookie)
+            .send(paraEditar({ nome: 'Edicao Sem Saldo', cor: 'Verde' }));
+
+        const { body } = await request(app).get(`/produtos/${id}/estoque`).set('Cookie', cookie);
+        expect(body.total).toBe(4);
     });
 
     it('limpa o campo opcional que não vem no corpo, porque PUT substitui', async () => {
         const criacao = await criar({ nome: 'Com Marca', marca: 'Nike' });
 
-        const semMarca = { ...PRODUTO_VALIDO, nome: 'Com Marca' };
+        const semMarca = paraEditar({ nome: 'Com Marca' });
         delete semMarca.marca;
         await request(app).put(`/produtos/${criacao.body.id}`).set('Cookie', cookie).send(semMarca);
 
@@ -339,7 +379,7 @@ describe('PUT /produtos/:id', () => {
         const resposta = await request(app)
             .put('/produtos/999999')
             .set('Cookie', cookie)
-            .send(PRODUTO_VALIDO);
+            .send(paraEditar());
 
         expect(resposta.status).toBe(404);
     });
@@ -348,7 +388,7 @@ describe('PUT /produtos/:id', () => {
         const idRuim = await request(app)
             .put('/produtos/abc')
             .set('Cookie', cookie)
-            .send(PRODUTO_VALIDO);
+            .send(paraEditar());
         expect(idRuim.status).toBe(400);
 
         const corpoRuim = await request(app).put('/produtos/1').set('Cookie', cookie).send({});

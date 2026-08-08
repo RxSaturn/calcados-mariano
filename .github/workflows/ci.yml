@@ -44,8 +44,11 @@ jobs:
             - name: Criar o banco
               run: npm run db:setup
 
-            - name: Testes
-              run: npm test
+            # Roda os testes e aplica o piso de cobertura de vitest.config.mjs. Se a
+            # cobertura cair abaixo do piso, este passo falha. O piso não deve ser
+            # baixado para fazer a CI passar.
+            - name: Testes com cobertura
+              run: npm run test:coverage
 
             - name: Smoke test do servidor de verdade
               run: |
@@ -103,9 +106,49 @@ jobs:
                   test "$(curl -s -b /tmp/ci-cookies -o /dev/null -w '%{http_code}' \
                     -X POST http://localhost:3000/produtos \
                     -H 'Content-Type: application/json' -d '{}')" = "400"
-                  test "$(curl -s -b /tmp/ci-cookies -o /dev/null -w '%{http_code}' \
-                    -X POST http://localhost:3000/produtos -H 'Content-Type: application/json' \
-                    -d '{"nome":"Smoke CI","categoria":"Bota","publico":"Unissex","numeracao":"42","quantidade":1}')" = "201"
+                  NOVO=$(curl -s -b /tmp/ci-cookies -X POST http://localhost:3000/produtos \
+                    -H 'Content-Type: application/json' \
+                    -d '{"nome":"Smoke CI","categoria":"Bota","publico":"Unissex","numeracao":"42","quantidade":5}')
+                  echo "$NOVO"
+                  ID=$(node -e "process.stdout.write(String(JSON.parse(process.argv[1]).id))" "$NOVO")
+                  test -n "$ID"
+
+                  echo "--- estoque e histórico exigem sessão"
+                  test "$(codigo "http://localhost:3000/produtos/$ID/estoque")" = "401"
+                  test "$(codigo "http://localhost:3000/produtos/$ID/movimentacoes")" = "401"
+
+                  comSessao() { curl -s -b /tmp/ci-cookies -o /dev/null -w '%{http_code}' "$@"; }
+
+                  echo "--- o cadastro abriu o saldo na Matriz"
+                  curl -s -b /tmp/ci-cookies "http://localhost:3000/produtos/$ID/estoque" \
+                    | tee /dev/stderr | grep -q '"total":5'
+
+                  echo "--- o PUT recusa a quantidade, porque o saldo muda só por movimentação"
+                  test "$(comSessao -X PUT "http://localhost:3000/produtos/$ID" \
+                    -H 'Content-Type: application/json' \
+                    -d '{"nome":"Smoke CI","categoria":"Bota","publico":"Unissex","numeracao":"42","quantidade":99}')" = "400"
+
+                  echo "--- movimentação"
+                  test "$(comSessao -X POST "http://localhost:3000/produtos/$ID/movimentacoes" \
+                    -H 'Content-Type: application/json' \
+                    -d '{"unidade":"Filial","tipo":"entrada","quantidade":3,"motivo":"Smoke"}')" = "201"
+                  # Saída maior que o saldo da unidade tem de responder 400.
+                  test "$(comSessao -X POST "http://localhost:3000/produtos/$ID/movimentacoes" \
+                    -H 'Content-Type: application/json' \
+                    -d '{"unidade":"Filial","tipo":"saida","quantidade":99}')" = "400"
+                  # Unidade fora da lista também.
+                  test "$(comSessao -X POST "http://localhost:3000/produtos/$ID/movimentacoes" \
+                    -H 'Content-Type: application/json' \
+                    -d '{"unidade":"Deposito","tipo":"entrada","quantidade":1}')" = "400"
+
+                  echo "--- o total acompanha, e as recusas não mudaram nada"
+                  curl -s -b /tmp/ci-cookies "http://localhost:3000/produtos/$ID/estoque" \
+                    | tee /dev/stderr | grep -q '"total":8'
+                  curl -s "http://localhost:3000/produtos/$ID" | grep -q '"quantidade":8'
+
+                  echo "--- o histórico tem a abertura e a entrada"
+                  curl -s -b /tmp/ci-cookies "http://localhost:3000/produtos/$ID/movimentacoes" \
+                    | tee /dev/stderr | grep -q '"total":2'
 
                   echo "--- o processo tem de estar vivo no fim"
                   curl -sf http://localhost:3000/health > /dev/null
@@ -134,8 +177,8 @@ jobs:
             - name: Lint
               run: npm run lint
 
-            - name: Testes
-              run: npm test
+            - name: Testes com cobertura
+              run: npm run test:coverage
 
             - name: Build
               run: npm run build

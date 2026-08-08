@@ -17,6 +17,12 @@
 -- A coluna imagem_url fica nula. Nenhuma foto existe ainda, e a vitrine mostra
 -- um marcador local quando o campo é nulo.
 
+-- As tabelas filhas saem primeiro. Com PRAGMA foreign_keys = ON o CASCADE daria conta,
+-- mas o PRAGMA vale por conexão, e nem toda ferramenta que roda este arquivo o liga.
+-- Sem estas duas linhas, uma recarga deixaria saldo e histórico apontando para ids que
+-- não existem mais.
+DELETE FROM movimentacoes;
+DELETE FROM estoque;
 DELETE FROM produtos;
 
 INSERT INTO produtos (nome, numeracao, categoria, publico, subcategoria, quantidade, status_estoque, marca, cor, descricao, imagem_url, nome_ordenacao)

@@ -83,6 +83,19 @@ export const atualizarProduto = (id, produto) =>
 export const removerProduto = (id) =>
   chamar(`/produtos/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
+// ---- Estoque por unidade e histórico. Exige sessão, inclusive na leitura. ----
+//
+// atualizarProduto NÃO muda a quantidade. O saldo muda só por registrarMovimentacao,
+// senão uma correção à mão trocaria o número sem deixar rastro no histórico.
+
+export const obterEstoque = (id) => chamar(`/produtos/${encodeURIComponent(id)}/estoque`);
+
+export const listarMovimentacoes = (id, filtros = {}) =>
+  chamar(`/produtos/${encodeURIComponent(id)}/movimentacoes${montarQuery(filtros)}`);
+
+export const registrarMovimentacao = (id, movimentacao) =>
+  chamar(`/produtos/${encodeURIComponent(id)}/movimentacoes`, comCorpo('POST', movimentacao));
+
 // ---- Sessão ----
 
 export const entrar = (senha) => chamar('/auth/login', comCorpo('POST', { senha }));

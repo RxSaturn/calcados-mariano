@@ -15,7 +15,9 @@ O dono da loja usa o painel para ver o estoque, buscar um calçado por nome, cat
 - [Pré-requisitos](#pré-requisitos)
 - [Instalação](#instalação)
 - [Execução](#execução)
+- [Autenticação](#autenticação)
 - [API](#api)
+- [Esquema do banco](#esquema-do-banco)
 - [Execução de Testes](#execução-de-testes)
 - [Estrutura de Diretórios](#estrutura-de-diretórios)
 - [Limitações Conhecidas](#limitações-conhecidas)
@@ -31,7 +33,7 @@ Este repositório dá à loja um controle de estoque por software. O sistema reg
 
 Este documento não descreve como a loja controla o estoque hoje. O time ainda não levantou essa informação.
 
-**API de estoque (`server.js` e `src/`). Este é o núcleo do produto.** Um servidor Express que expõe três rotas HTTP sobre a tabela `produtos`. A API lista o estoque, busca produtos por nome, categoria ou numeração, e cadastra um produto novo. Cada produto guarda numeração, quantidade e situação de estoque.
+**API de estoque (`server.js` e `src/`). Este é o núcleo do produto.** Um servidor Express sobre um banco SQLite. A API lista o estoque com filtro, ordenação e paginação, busca por nome, categoria ou numeração, cadastra, edita e remove produto, e guarda o saldo de cada unidade da loja com o histórico de entrada e saída. A leitura é pública. A escrita e o estoque por unidade exigem sessão.
 
 **Painel web (`painel-estoque/`).** Uma página única em React que consome a API. Ela mostra o estoque em tabela, com nome, categoria, numeração, quantidade e situação. As linhas com quantidade no limite ou abaixo recebem destaque, porque avisar sobre falta é o motivo de existir do sistema. A página traz também a busca e o formulário de cadastro.
 
@@ -118,10 +120,12 @@ O backend e o frontend são dois projetos npm separados. Cada um tem o seu próp
 
 O arquivo `calcados_mariano.db` **não** vem no repositório. O comando `npm run db:setup` o cria a partir de dois arquivos SQL versionados:
 
-| Arquivo         | Conteúdo                                                  |
-| --------------- | --------------------------------------------------------- |
-| `db/schema.sql` | A estrutura da tabela `produtos` e os índices.            |
-| `db/seed.sql`   | Treze calçados de exemplo, para o banco não nascer vazio. |
+| Arquivo                 | Conteúdo                                                      |
+| ----------------------- | ------------------------------------------------------------- |
+| `db/schema.sql`         | As tabelas `produtos`, `estoque` e `movimentacoes`.           |
+| `db/indexes.sql`        | Os índices. Ficam à parte porque rodam depois da migração.    |
+| `db/seed.sql`           | Dezesseis calçados de exemplo, para o banco não nascer vazio. |
+| `db/estoque-inicial.js` | Abre o saldo por unidade dos produtos que ainda não têm.      |
 
 O comando não apaga dados. Quando a tabela já tem produtos, ele avisa e não altera nada. Para recarregar os dados de exemplo e descartar o que existe, use `npm run db:setup -- --reset`.
 
@@ -152,19 +156,22 @@ Confirme que o servidor e o banco respondem:
 
 ```bash
 curl http://localhost:3000/health
-# {"status":"ok","banco":"conectado","produtos":13}
+# {"status":"ok","banco":"conectado","produtos":16}
 ```
 
 Para parar o servidor, pressione `Ctrl+C`.
 
 ### Comandos do backend
 
-| Comando                       | O que faz                                                 |
-| ----------------------------- | --------------------------------------------------------- |
-| `npm start`                   | Sobe o servidor na porta 3000.                            |
-| `npm run dev`                 | Sobe o servidor e o reinicia quando um arquivo muda.      |
-| `npm run db:setup`            | Cria o banco a partir de `db/schema.sql` e `db/seed.sql`. |
-| `npm run db:setup -- --reset` | Recarrega os dados de exemplo e descarta os atuais.       |
+| Comando                       | O que faz                                            |
+| ----------------------------- | ---------------------------------------------------- |
+| `npm start`                   | Sobe o servidor na porta 3000.                       |
+| `npm run dev`                 | Sobe o servidor e o reinicia quando um arquivo muda. |
+| `npm run db:setup`            | Cria e migra o banco a partir dos arquivos de `db/`. |
+| `npm run db:setup -- --reset` | Recarrega os dados de exemplo e descarta os atuais.  |
+| `npm run auth:hash`           | Gera o hash da senha do painel, para pôr no `.env`.  |
+| `npm test`                    | Roda os testes do backend.                           |
+| `npm run test:coverage`       | Roda os testes e aplica o piso de cobertura.         |
 
 As variáveis de ambiente ficam documentadas em `.env.example`. Copie o arquivo para `.env` e ajuste o que precisar. A variável `PORT` muda a porta, e `DB_PATH` muda o caminho do banco.
 
@@ -192,225 +199,328 @@ O painel depende da API. Suba o backend antes, porque a tela carrega o estoque d
 
 ---
 
+## Autenticação
+
+O painel usa uma sessão com um credencial só, o do dono da loja. A leitura fica pública, porque a vitrine é pública. A escrita e o estoque por unidade exigem sessão.
+
+**Não existe senha padrão.** O servidor lê duas variáveis de ambiente:
+
+| Variável           | O que guarda                                                     |
+| ------------------ | ---------------------------------------------------------------- |
+| `ADMIN_SENHA_HASH` | O hash `scrypt` da senha, no formato `scrypt$<sal>$<hash>`.      |
+| `SESSAO_SEGREDO`   | O segredo que assina o token da sessão. Use 32 bytes aleatórios. |
+
+Gere o hash com o script do projeto e ponha o resultado no `.env`:
+
+```bash
+npm run auth:hash
+```
+
+Quando uma das duas variáveis falta, o login responde `503` com uma mensagem clara. O servidor nunca aceita uma senha qualquer.
+
+O token viaja em um cookie `httpOnly` chamado `sessao_mariano`, com `SameSite=Lax` e validade de 12 horas. O cookie é assinado com HMAC-SHA256. Um cookie adulterado não vale.
+
+---
+
 ## API
 
 O servidor escuta em `http://localhost:3000`. Todas as respostas usam JSON, com uma exceção: a rota raiz devolve texto puro.
 
-### `GET /`
+### Resumo das rotas
 
-Confirma que o servidor está no ar. Devolve texto puro, não JSON.
+| Método   | Rota                          | Sessão | O que faz                                   |
+| -------- | ----------------------------- | ------ | ------------------------------------------- |
+| `GET`    | `/`                           | Não    | Diz que o processo está no ar.              |
+| `GET`    | `/health`                     | Não    | Diz se o servidor e o banco atendem.        |
+| `GET`    | `/produtos`                   | Não    | Lista com filtro, ordenação e paginação.    |
+| `GET`    | `/produtos/buscar`            | Não    | Pesquisa por nome, categoria ou numeração.  |
+| `GET`    | `/produtos/categorias`        | Não    | Categorias e públicos que existem no banco. |
+| `GET`    | `/produtos/:id`               | Não    | Um produto.                                 |
+| `POST`   | `/produtos`                   | Sim    | Cadastra, e abre o saldo inicial.           |
+| `PUT`    | `/produtos/:id`               | Sim    | Edita os atributos. **Não muda o saldo.**   |
+| `DELETE` | `/produtos/:id`               | Sim    | Remove o produto, o saldo e o histórico.    |
+| `GET`    | `/produtos/:id/estoque`       | Sim    | Saldo de cada unidade, e o total.           |
+| `GET`    | `/produtos/:id/movimentacoes` | Sim    | Histórico de entrada e saída, paginado.     |
+| `POST`   | `/produtos/:id/movimentacoes` | Sim    | Registra entrada ou saída.                  |
+| `POST`   | `/auth/login`                 | Não    | Abre a sessão.                              |
+| `POST`   | `/auth/logout`                | Não    | Fecha a sessão.                             |
+| `GET`    | `/auth/sessao`                | Não    | Diz se há sessão aberta.                    |
 
-```bash
-curl http://localhost:3000/
-```
-
-```
-Servidor da Calçados Mariano rodando com sucesso!
-```
-
-Esta rota não verifica o banco de dados. Ela responde `200` mesmo quando o banco falha. Para monitoramento, use `GET /health`.
+Uma rota que exige sessão responde `401` sem cookie válido, e `503` quando a autenticação não está configurada no servidor.
 
 ### `GET /health`
 
 Diz se o servidor **e o banco** estão em condições de atender. Use esta rota em monitoramento e em smoke tests.
 
-```bash
-curl http://localhost:3000/health
-```
-
 ```json
-{ "status": "ok", "banco": "conectado", "produtos": 13 }
+{ "status": "ok", "banco": "conectado", "produtos": 16 }
 ```
 
-Quando o banco não responde:
-
-```json
-{
-  "status": "indisponivel",
-  "banco": "sem resposta",
-  "mensagem": "SQLITE_ERROR: no such table: produtos"
-}
-```
-
-| Resposta | Quando                                                           |
-| -------- | ---------------------------------------------------------------- |
-| `200`    | O banco respondeu. O campo `produtos` traz a contagem de linhas. |
-| `503`    | O banco não respondeu, ou a tabela `produtos` não existe.        |
+| Resposta | Quando                                                    |
+| -------- | --------------------------------------------------------- |
+| `200`    | O banco respondeu. O campo `produtos` traz a contagem.    |
+| `503`    | O banco não respondeu, ou a tabela `produtos` não existe. |
 
 A verificação consulta a tabela `produtos` de propósito. Uma consulta como `SELECT 1` provaria só que a conexão abriu. O driver `sqlite3` cria um arquivo vazio quando o banco não existe, portanto `SELECT 1` passaria em um clone onde ninguém rodou `npm run db:setup`.
 
 ### `GET /produtos`
 
-Lista todos os produtos da tabela.
-
 ```bash
-curl http://localhost:3000/produtos
+curl "http://localhost:3000/produtos?publico=Feminino&ordenar=nome&pagina=1&limite=20"
 ```
+
+| Parâmetro   | Valores aceitos                                                  | Padrão     |
+| ----------- | ---------------------------------------------------------------- | ---------- |
+| `publico`   | `Masculino`, `Feminino`, `Infantil`, `Unissex`                   | sem filtro |
+| `categoria` | Igualdade exata contra a coluna `categoria`                      | sem filtro |
+| `ordenar`   | `nome`, `nome_desc`, `quantidade`, `quantidade_desc`, `recentes` | `nome`     |
+| `pagina`    | Inteiro a partir de 1                                            | `1`        |
+| `limite`    | Inteiro de 1 a 100                                               | `50`       |
+
+A resposta é um envelope, e não um array cru, porque a tela precisa do total para montar a paginação:
 
 ```json
-[
-  {
-    "id": 2,
-    "nome": "Sapato Social Preto",
-    "numeracao": "40",
-    "categoria": "Sapato",
-    "subcategoria": null,
-    "quantidade": 15,
-    "status_estoque": "Em estoque",
-    "marca": null,
-    "cor": null,
-    "descricao": null
-  }
-]
+{ "produtos": [], "total": 16, "pagina": 1, "limite": 50, "paginas": 1 }
 ```
 
-| Resposta | Quando                                                   |
-| -------- | -------------------------------------------------------- |
-| `200`    | A consulta funcionou. O corpo traz um array de produtos. |
-| `500`    | O banco de dados falhou.                                 |
+Um valor fora da lista em `ordenar` ou em `publico` responde `400`. A rota **não** cai no padrão em silêncio. Cair no padrão faria a tela mostrar outra ordem sem avisar ninguém.
+
+A ordenação por nome usa a coluna `nome_ordenacao`, que guarda o nome sem acento e em minúscula. O SQLite não tem colação por idioma, portanto `Sapatênis` cairia depois de `Sapato` sem essa coluna.
 
 ### `GET /produtos/buscar`
 
-Busca produtos por um campo. A rota exige dois parâmetros de query.
+| Parâmetro | Obrigatório | Valores aceitos                  | O que faz                                                          |
+| --------- | ----------- | -------------------------------- | ------------------------------------------------------------------ |
+| `tipo`    | Sim         | `nome`, `categoria`, `numeracao` | Escolhe a coluna da busca.                                         |
+| `termo`   | Sim         | Texto livre                      | Busca parcial em `nome` e `categoria`. Busca exata em `numeracao`. |
 
-| Parâmetro | Obrigatório | Valores aceitos                  | O que faz                                                                                 |
-| --------- | ----------- | -------------------------------- | ----------------------------------------------------------------------------------------- |
-| `tipo`    | Sim         | `nome`, `categoria`, `numeracao` | Escolhe a coluna da busca.                                                                |
-| `termo`   | Sim         | Texto livre                      | O valor procurado. Busca parcial para `nome` e `categoria`. Busca exata para `numeracao`. |
-
-```bash
-curl "http://localhost:3000/produtos/buscar?tipo=nome&termo=bota"
-```
-
-```json
-[
-  {
-    "id": 3,
-    "nome": "Bota Texana Bico Quadrado",
-    "numeracao": "41",
-    "categoria": "Bota (texana)",
-    "quantidade": 8,
-    "status_estoque": "Em estoque"
-  }
-]
-```
-
-A rota rejeita um pedido incompleto com `400` e uma mensagem que diz o que falta:
-
-```bash
-curl "http://localhost:3000/produtos/buscar?termo=41"
-```
-
-```json
-{
-  "mensagem": "O parâmetro \"tipo\" é obrigatório e precisa ser um destes: nome, categoria, numeracao."
-}
-```
-
-| Resposta | Quando                                                                                |
-| -------- | ------------------------------------------------------------------------------------- |
-| `200`    | A busca funcionou. O corpo traz um array, que pode vir vazio.                         |
-| `400`    | O pedido não trouxe `tipo`, ou trouxe um `tipo` fora da lista, ou não trouxe `termo`. |
-| `500`    | O banco de dados falhou.                                                              |
-
-> **Histórico.** Até a correção do item P0-1, um pedido sem `tipo` derrubava o processo do servidor com segmentation fault e código de saída 139. O modelo montava uma consulta SQL vazia e o driver `sqlite3` falhava em código nativo. A rota agora valida os dois parâmetros antes de chegar ao banco.
+> **Histórico.** Até a correção do item P0-1, um pedido sem `tipo` derrubava o processo com segmentation fault e código de saída 139. O model montava uma consulta vazia e o driver `sqlite3` falhava em código nativo. A consulta agora sai de uma tabela de valores aceitos, e nunca do texto do pedido.
 
 ### `POST /produtos`
 
-Cadastra um produto novo.
+Cadastra um produto e **abre o saldo inicial** na mesma transação.
 
 ```bash
-curl -X POST http://localhost:3000/produtos \
+curl -X POST http://localhost:3000/produtos -b cookies.txt \
   -H "Content-Type: application/json" \
-  -d '{
-    "nome": "Tênis Casual Azul",
-    "categoria": "Tênis",
-    "quantidade": 10,
-    "status_estoque": "Em estoque",
-    "numeracao": "42"
-  }'
+  -d '{"nome":"Tênis Casual Azul","categoria":"Tênis casual","publico":"Unissex",
+       "numeracao":"42","quantidade":10,"unidade":"Matriz","marca":"Mariano"}'
 ```
+
+| Campo            | Obrigatório | Regra                                             |
+| ---------------- | ----------- | ------------------------------------------------- |
+| `nome`           | Sim         | Texto, até 200 caracteres.                        |
+| `categoria`      | Sim         | Texto. Guarda o **tipo** do calçado.              |
+| `numeracao`      | Sim         | Texto, porque há faixas como `35/36`.             |
+| `publico`        | Sim         | `Masculino`, `Feminino`, `Infantil` ou `Unissex`. |
+| `quantidade`     | Sim         | Inteiro, zero ou mais. Vira o saldo de abertura.  |
+| `unidade`        | Não         | `Matriz` ou `Filial`. O padrão é `Matriz`.        |
+| `status_estoque` | Não         | Texto. Sem ele, o valor sai da quantidade.        |
+| `marca`, `cor`   | Não         | Texto, até 200 caracteres.                        |
+| `descricao`      | Não         | Texto, até 1000 caracteres.                       |
+| `imagem_url`     | Não         | Precisa começar com `/`, `http://` ou `https://`. |
+
+A regra do `imagem_url` existe porque a vitrine põe esse valor no atributo `src` de uma imagem. Um `javascript:` gravado no campo viraria execução de script na página do cliente.
+
+Uma quantidade maior que zero gera uma movimentação de entrada com o motivo `Cadastro inicial`.
+
+| Resposta | Quando                                                         |
+| -------- | -------------------------------------------------------------- |
+| `201`    | O servidor gravou o produto. O corpo traz o `id`.              |
+| `400`    | A validação falhou. O corpo traz `erros` com a lista completa. |
+| `401`    | Não veio sessão.                                               |
+| `503`    | A autenticação não está configurada no servidor.               |
+
+### `PUT /produtos/:id`
+
+Substitui os atributos do produto: `nome`, `numeracao`, `categoria`, `publico`, `marca`, `cor`, `descricao` e `imagem_url`.
+
+**Esta rota não muda a quantidade.** Um corpo que traga `quantidade` ou `status_estoque` recebe `400`, com a rota certa na mensagem.
+
+O motivo é o histórico. Se a edição mudasse o saldo, o número mudaria sem deixar rastro, e o histórico teria furo exatamente onde ele mais importa: em uma correção feita à mão. O saldo muda por uma porta só, que é `POST /produtos/:id/movimentacoes`.
+
+Um campo opcional que não vem no corpo fica nulo, porque `PUT` substitui o objeto.
+
+### `POST /produtos/:id/movimentacoes`
+
+Registra uma entrada ou uma saída em uma unidade.
+
+```bash
+curl -X POST http://localhost:3000/produtos/3/movimentacoes -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{"unidade":"Filial","tipo":"saida","quantidade":2,"motivo":"Venda no balcão"}'
+```
+
+| Campo        | Obrigatório | Regra                                           |
+| ------------ | ----------- | ----------------------------------------------- |
+| `unidade`    | Sim         | `Matriz` ou `Filial`.                           |
+| `tipo`       | Sim         | `entrada` ou `saida`.                           |
+| `quantidade` | Sim         | Inteiro a partir de 1. O tipo é que dá o sinal. |
+| `motivo`     | Não         | Texto, até 200 caracteres.                      |
+
+Regras que a rota aplica:
+
+- Uma saída maior que o saldo **daquela unidade** responde `400`. O saldo nunca fica negativo.
+- O saldo de uma unidade não paga a saída de outra, mesmo quando o total do produto é suficiente.
+- A movimentação e o recálculo do total acontecem na mesma transação. Ou as duas coisas valem, ou nenhuma vale.
 
 ```json
-{ "mensagem": "Produto adicionado com sucesso!" }
+{
+  "mensagem": "Movimentação registrada.",
+  "id": 42,
+  "produto_id": 3,
+  "unidade": "Filial",
+  "tipo": "saida",
+  "quantidade": 2,
+  "saldo": 1
+}
 ```
 
-| Campo            | Tipo   | Coluna           |
-| ---------------- | ------ | ---------------- |
-| `nome`           | texto  | `nome`           |
-| `categoria`      | texto  | `categoria`      |
-| `quantidade`     | número | `quantidade`     |
-| `status_estoque` | texto  | `status_estoque` |
-| `numeracao`      | texto  | `numeracao`      |
+### `GET /produtos/:id/estoque`
 
-| Resposta | Quando                       |
-| -------- | ---------------------------- |
-| `201`    | O servidor gravou o produto. |
-| `500`    | A gravação falhou.           |
-
-> **Atenção:** esta rota não valida a entrada e não pede autenticação. O CORS aceita qualquer origem. Qualquer pessoa com acesso à rede grava linhas na tabela. Não exponha este servidor na internet no estado atual.
-
-### Esquema da tabela `produtos`
-
-```sql
-CREATE TABLE "produtos" (
-  "id"             INTEGER,
-  "nome"           TEXT,
-  "numeracao"      TEXT,
-  "categoria"      TEXT,
-  "subcategoria"   TEXT,
-  "quantidade"     INTEGER,
-  "status_estoque" TEXT,
-  "marca"          TEXT,
-  "cor"            TEXT,
-  "descricao"      TEXT,
-  PRIMARY KEY("id")
-);
+```json
+{
+  "produto_id": 3,
+  "nome": "Bota Texana Bico Quadrado",
+  "unidades": [
+    { "unidade": "Matriz", "quantidade": 8 },
+    { "unidade": "Filial", "quantidade": 0 }
+  ],
+  "total": 8
+}
 ```
 
-A rota `POST /produtos` grava cinco das dez colunas. As colunas `subcategoria`, `marca`, `cor` e `descricao` ficam nulas em todas as 13 linhas atuais. A tabela não tem coluna de preço e não tem coluna de imagem.
+A leitura exige sessão. Onde cada par está é dado de operação da loja. A vitrine mostra ao cliente apenas o total, que já vem no campo `quantidade` do produto.
+
+---
+
+## Esquema do banco
+
+O arquivo `.db` não é versionado. A estrutura vive em `db/schema.sql`, os índices em `db/indexes.sql` e os dados iniciais em `db/seed.sql`. Rode `npm run db:setup` para criar ou atualizar o banco.
+
+### `produtos`
+
+| Coluna           | Tipo    | O que guarda                                                               |
+| ---------------- | ------- | -------------------------------------------------------------------------- |
+| `id`             | inteiro | Chave primária, gerada pelo banco.                                         |
+| `nome`           | texto   | Nome do calçado.                                                           |
+| `numeracao`      | texto   | Texto, e não número, porque há faixas como `35/36`.                        |
+| `categoria`      | texto   | O **tipo** do calçado: `Botina`, `Sapato social`, `Sandália`.              |
+| `publico`        | texto   | Para **quem** o calçado é: `Masculino`, `Feminino`, `Infantil`, `Unissex`. |
+| `quantidade`     | inteiro | Total desnormalizado. Ver a nota abaixo.                                   |
+| `status_estoque` | texto   | `Em estoque` ou `Sem estoque`. Derivado do total.                          |
+| `marca`, `cor`   | texto   | Dados que a vitrine mostra ao cliente.                                     |
+| `descricao`      | texto   | Texto do produto na vitrine.                                               |
+| `imagem_url`     | texto   | Foto. Nulo faz a tela mostrar um marcador.                                 |
+| `nome_ordenacao` | texto   | Nome sem acento e em minúscula. Serve só para ordenar.                     |
+| `subcategoria`   | texto   | Coluna herdada. Nada a preenche. Ver as limitações.                        |
+
+`categoria` e `publico` são colunas separadas de propósito. Antes dessa separação, a mesma coluna misturava as duas coisas: alguns produtos diziam `Esporte` ou `Masculino`, e outros diziam `Botina` ou `Sandália`. A vitrine então precisava adivinhar o público com uma lista de palavras-chave. Com as duas colunas, o filtro é igualdade exata.
+
+### `estoque`
+
+Saldo por unidade da loja.
+
+| Coluna       | Tipo    | O que guarda                                        |
+| ------------ | ------- | --------------------------------------------------- |
+| `produto_id` | inteiro | Aponta para `produtos.id`, com `ON DELETE CASCADE`. |
+| `unidade`    | texto   | `Matriz` ou `Filial`.                               |
+| `quantidade` | inteiro | Saldo naquela unidade.                              |
+
+A chave primária é o par `(produto_id, unidade)`.
+
+**Sobre `produtos.quantidade`.** Ela continua existindo, como total desnormalizado, e é recalculada dentro da mesma transação da movimentação. O motivo de manter as duas: a listagem paginada ordena por quantidade, e um `SUM` com `JOIN` em toda página custaria caro sem ganho. Um teste confere que o total nunca diverge da soma do `estoque`.
+
+### `movimentacoes`
+
+| Coluna       | Tipo    | O que guarda                                        |
+| ------------ | ------- | --------------------------------------------------- |
+| `id`         | inteiro | Chave primária.                                     |
+| `produto_id` | inteiro | Aponta para `produtos.id`, com `ON DELETE CASCADE`. |
+| `unidade`    | texto   | Onde a movimentação aconteceu.                      |
+| `tipo`       | texto   | `entrada` ou `saida`.                               |
+| `quantidade` | inteiro | Sempre positiva. O tipo é que dá o sinal.           |
+| `motivo`     | texto   | Texto livre. Pode ser nulo.                         |
+| `criado_em`  | texto   | ISO 8601, em UTC.                                   |
+
+As chaves estrangeiras só valem com `PRAGMA foreign_keys = ON`, porque o SQLite desliga a checagem por padrão em cada conexão. O projeto liga o PRAGMA em `src/config/db.js` e em `db/setup.js`.
+
+### Migração do saldo por unidade
+
+> **Atenção, e isto precisa de conferência do time.**
+>
+> O banco anterior guardava um número só em `produtos.quantidade`, e não dizia de qual loja ele era. A migração põe **todo** esse saldo na **Matriz** e deixa a Filial em zero, com uma movimentação de motivo `Saldo migrado`.
+>
+> Isso é uma escolha, e não um fato. Confira o saldo real de cada loja e mova o que estiver no lugar errado com `POST /produtos/:id/movimentacoes`, antes de confiar nos números do painel.
+
+A migração é idempotente. Rodar `npm run db:setup` duas vezes não duplica saldo nem movimentação.
 
 ---
 
 ## Execução de Testes
 
-O projeto tem **46 testes automatizados**: 34 no backend e 12 no painel.
+O projeto tem **167 testes automatizados**: 136 no backend e 31 no painel.
 
 ### Backend
 
 ```bash
-npm test          # roda uma vez
+npm test              # roda uma vez
 npm run test:watch
+npm run test:coverage # roda e aplica o piso de cobertura
 ```
 
-| Arquivo                      | O que cobre                                                   |
-| ---------------------------- | ------------------------------------------------------------- |
-| `tests/smoke.test.js`        | O app carrega, `/health` responde, `/produtos` devolve array. |
-| `tests/produtos.test.js`     | As três rotas pela camada HTTP, com os casos de erro.         |
-| `tests/produtoModel.test.js` | Os quatro caminhos de `buscar` e a validação de `adicionar`.  |
+| Arquivo                            | O que cobre                                                        |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| `tests/smoke.test.js`              | O app carrega, `/health` responde, `/produtos` devolve o envelope. |
+| `tests/produtos.test.js`           | As rotas de leitura pela camada HTTP, com os casos de erro.        |
+| `tests/produtoModel.test.js`       | Os caminhos de `buscar` e a validação de `adicionar`.              |
+| `tests/produtosCrud.test.js`       | Filtro, ordenação, paginação, editar e remover.                    |
+| `tests/seed.test.js`               | A carga inicial e a coerência dos dados.                           |
+| `tests/auth.test.js`               | Login, sessão, cookie adulterado e o guarda das rotas de escrita.  |
+| `tests/authNaoConfigurada.test.js` | O `503` quando falta variável de ambiente.                         |
+| `tests/estoque.test.js`            | Saldo por unidade, abertura na migração e remoção em cascata.      |
+| `tests/movimentacoes.test.js`      | Entrada, saída, saldo negativo, transação e histórico.             |
 
-Cada arquivo de teste cria o seu próprio banco temporário, a partir dos mesmos `db/schema.sql` e `db/seed.sql` que o `npm run db:setup` usa. Nenhum teste toca o banco de desenvolvimento.
+Cada arquivo de teste cria o seu próprio banco temporário, a partir dos mesmos `db/schema.sql`, `db/indexes.sql` e `db/seed.sql` que o `npm run db:setup` usa. Nenhum teste toca o banco de desenvolvimento.
 
 ### Painel
 
 ```bash
 cd painel-estoque
 npm test
+npm run test:coverage
 ```
 
-Os testes do painel substituem o módulo da API por mocks. Eles conferem a tela: a tabela renderiza, o destaque de estoque baixo aparece na linha certa, a busca chama a API com o tipo e o termo escolhidos, e os erros de validação da API aparecem na tela.
+Os testes do painel cobrem duas camadas. O `App.test.jsx` substitui o módulo da API por dublês e confere a tela. O `api.test.js` substitui o `fetch` e confere o contrato com o backend: método, caminho, query, credencial e a tradução do erro.
+
+### Cobertura
+
+A CI aplica um piso de cobertura nos dois pacotes. Um pacote abaixo do piso reprova a execução.
+
+| Pacote           | Linhas | Comandos | Funções | Ramos |
+| ---------------- | ------ | -------- | ------- | ----- |
+| Raiz (backend)   | 95     | 95       | 95      | 85    |
+| `painel-estoque` | 95     | 95       | 95      | 90    |
+
+O piso sai da medição real, arredondada para baixo até o múltiplo de 5, e limitada em 95. A regra é grosseira de propósito. Um piso colado na medição falha a cada ponto de oscilação e vira ruído. Um piso de 100 transforma toda função nova em falha antes de o teste dela entrar.
+
+**Não baixe o piso para fazer a CI passar.** Ele existe para avisar que a cobertura caiu.
 
 ### Verificações da integração contínua
 
-O arquivo `.github/workflows/ci.yml` roda tudo no Node 20 e 22, a cada push na `main` e a cada pull request.
+O arquivo `.github/workflows/ci.yml` roda tudo no **Node 22 e 24**, a cada push em qualquer branch e a cada pull request.
 
-| Onde   | Comandos                                                               |
-| ------ | ---------------------------------------------------------------------- |
-| Raiz   | `npm run lint`, `npm run format:check`, `npm run db:setup`, `npm test` |
-| Raiz   | Um smoke test contra o servidor de verdade, com `curl`                 |
-| Painel | `npm run lint`, `npm test`, `npm run build`                            |
+| Onde   | Comandos                                                                            |
+| ------ | ----------------------------------------------------------------------------------- |
+| Raiz   | `npm run lint`, `npm run format:check`, `npm run db:setup`, `npm run test:coverage` |
+| Raiz   | Um smoke test contra o servidor de verdade, com `curl`                              |
+| Painel | `npm run lint`, `npm run test:coverage`, `npm run build`                            |
+
+O smoke test sorteia uma senha, gera o hash, sobe o servidor de verdade e exercita o caminho completo: leitura pública, `400` na busca sem `tipo`, `401` na escrita sem sessão, login com senha errada e com a certa, cadastro, `400` no `PUT` com quantidade, movimentação, saída maior que o saldo e o histórico.
 
 Rode os mesmos comandos antes de abrir um pull request. Veja o [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
 
 ## Estrutura de Diretórios
 
@@ -422,74 +532,67 @@ calcados-mariano/
 │                                   # (calcados_mariano.db não é versionado. Rode npm run db:setup.)
 │
 ├── db/                             # Definição do banco de dados.
-│   ├── schema.sql                  # Estrutura da tabela produtos e os índices.
-│   ├── seed.sql                    # Treze calçados de exemplo.
-│   └── setup.js                    # Cria o banco a partir dos dois arquivos acima.
+│   ├── schema.sql                  # Tabelas produtos, estoque e movimentacoes.
+│   ├── indexes.sql                 # Índices. Separado porque rodam depois da migração.
+│   ├── seed.sql                    # Dezesseis calçados de exemplo.
+│   ├── estoque-inicial.js          # Abre o saldo por unidade. Usado pelo setup e pelos testes.
+│   ├── hash-senha.js               # Gera o hash scrypt da senha do painel.
+│   └── setup.js                    # Cria e migra o banco a partir dos arquivos acima.
 │
 ├── src/                            # Código do backend, separado por camada.
 │   ├── app.js                      # Monta o Express, os middlewares e as rotas. Não abre porta.
+│   ├── auth/sessao.js              # Assina e confere o token. Lê e escreve o cookie.
+│   ├── middlewares/
+│   │   └── exigirAutenticacao.js   # Guarda das rotas que exigem sessão.
 │   ├── config/
-│   │   └── db.js                   # Abre a conexão SQLite. Lê DB_PATH.
-│   ├── routes/
-│   │   ├── healthRoutes.js         # Declara a rota GET /health.
-│   │   └── produtoRoutes.js        # Declara as três rotas de produto.
-│   ├── controllers/
-│   │   ├── HealthController.js     # Responde 200 ou 503 conforme o banco.
-│   │   └── ProdutoController.js    # Trata requisição e resposta HTTP. Define os status.
+│   │   ├── db.js                   # Abre a conexão SQLite. Liga as chaves estrangeiras.
+│   │   └── unidades.js             # As unidades da loja. Sem dependência de banco.
+│   ├── routes/                     # healthRoutes, authRoutes e produtoRoutes.
+│   ├── controllers/                # HealthController, AuthController e ProdutoController.
 │   └── models/
 │       ├── HealthModel.js          # Consulta a tabela para provar que o banco responde.
-│       └── ProdutoModel.js         # Monta as consultas SQL e valida a entrada.
+│       ├── ProdutoModel.js         # Consultas e validação do produto.
+│       ├── EstoqueModel.js         # Saldo por unidade e recálculo do total.
+│       ├── MovimentacaoModel.js    # Entrada, saída e histórico.
+│       ├── transacao.js            # Consulta com promessa e transação com fila.
+│       └── erros.js                # As marcas que o controller traduz em 400 e 404.
 │
 ├── tests/                          # Testes do backend, com Vitest e Supertest.
-│   ├── helpers/bancoDeTeste.js     # Cria um banco temporário por arquivo de teste.
-│   ├── smoke.test.js               # O sistema sobe e atende.
-│   ├── produtos.test.js            # As três rotas, pela camada HTTP.
-│   └── produtoModel.test.js        # O model, sem HTTP.
+│   └── helpers/                    # Banco temporário e sessão de teste.
 │
 ├── painel-estoque/                 # Projeto npm separado. O painel em React.
-│   ├── index.html                  # Documento raiz que o Vite serve.
-│   ├── vite.config.js              # Configuração do Vite, com o proxy para a API.
-│   ├── vitest.config.js            # Configuração dos testes do painel.
-│   ├── .env.example                # VITE_API_URL e VITE_ESTOQUE_BAIXO.
 │   └── src/
-│       ├── main.jsx                # Ponto de entrada do React.
-│       ├── App.jsx                 # Compõe a tela e guarda o estado. Não desenha nada sozinho.
-│       ├── config.js               # URL da API, limite de estoque baixo e dados da loja.
+│       ├── App.jsx                 # Compõe a tela e guarda o estado.
+│       ├── config.js               # URL da API, limites, públicos e unidades.
 │       ├── api/produtos.js         # Cliente HTTP da API de estoque.
 │       ├── components/             # Header, BuscaForm, EstoqueTable, EstoqueRow,
 │       │                           # ProdutoForm e Footer.
-│       ├── __tests__/              # Testes do painel, com Testing Library.
-│       ├── App.css                 # Estilos do painel.
-│       └── index.css               # Estilos globais e as variáveis de cor.
+│       └── __tests__/              # Testes da tela e do cliente HTTP.
 │
-├── .github/
-│   ├── workflows/ci.yml            # Integração contínua.
-│   ├── dependabot.yml              # Atualização de dependências.
-│   ├── pull_request_template.md
-│   └── ISSUE_TEMPLATE/
-│
-└── docs/
-    └── ROADMAP.md                  # Plano técnico priorizado.
+├── .github/workflows/ci.yml        # Integração contínua.
+└── docs/ROADMAP.md                 # Plano técnico priorizado.
 ```
 
-O backend segue uma separação em camadas. A rota recebe a URL, o controller trata o HTTP e o model fala com o banco. Uma camada só chama a camada abaixo dela.
+O backend segue uma separação em camadas. A rota recebe a URL, o controller trata o HTTP e o model fala com o banco. Uma camada só chama a camada abaixo dela. O model marca o erro com `validacao` ou `naoEncontrado`, e o controller traduz essas marcas em `400` e `404`. Assim o model não conhece HTTP e o controller não conhece SQL.
 
 O `server.js` e o `src/app.js` têm papéis separados de propósito. O `app.js` monta o Express e exporta o app, sem abrir porta. O `server.js` importa esse app e chama `listen`. Essa divisão permite que um teste importe o app e chame as rotas sem ocupar a porta 3000.
 
-No painel, o `App.jsx` só compõe a tela e guarda o estado. Cada parte da interface vive em `src/components`, e toda chamada de rede passa por `src/api/produtos.js`.
+---
 
 ## Limitações Conhecidas
 
 Esta lista descreve o estado real do código. O arquivo [`docs/ROADMAP.md`](docs/ROADMAP.md) traz o plano com prioridades.
 
-| #   | Limitação                                                                                                             | Impacto                                                     |
-| --- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| 1   | `POST /produtos` valida a entrada, mas **não pede autenticação**. Qualquer pessoa com acesso à rede cadastra produto. | Alto. Não exponha este servidor na internet.                |
-| 2   | Não existe rota para editar nem para remover produto. O painel só lista, busca e cadastra.                            | Médio. A correção de um erro de digitação exige SQL na mão. |
-| 3   | O painel não tem paginação. Ele carrega o estoque inteiro em uma chamada.                                             | Baixo hoje, com 13 produtos. Cresce com o catálogo.         |
-| 4   | A tabela `produtos` tem as colunas `subcategoria`, `marca`, `cor` e `descricao`, e nada as preenche.                  | Baixo. Colunas mortas no esquema.                           |
-| 5   | Os dados da loja ficam em `painel-estoque/src/config.js`, e não em variável de ambiente.                              | Baixo. Precisa sair do código antes de qualquer publicação. |
-| 6   | O `status_estoque` é texto livre no banco. O formulário oferece três opções, mas a API aceita qualquer texto.         | Baixo. Permite valor fora do padrão via API.                |
+| #   | Limitação                                                                                                                     | Impacto                                                         |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 1   | A migração pôs **todo** o saldo antigo na Matriz. Ninguém conferiu o saldo real de cada loja.                                 | Alto. Os números por unidade não valem até essa conferência.    |
+| 2   | O sistema tem **um credencial só**, do dono da loja. Não há conta por usuário, e o histórico não diz quem fez a movimentação. | Médio. O rastro diz o que mudou, e não quem mudou.              |
+| 3   | O painel ainda não tem tela para editar, remover, nem para registrar movimentação. As rotas existem e têm teste.              | Médio. Essas operações hoje pedem `curl`.                       |
+| 4   | Não existe vitrine pública nesta branch. A tela atual serve o dono da loja.                                                   | Médio. A vitrine é o caminho do cliente até a loja.             |
+| 5   | A tabela `produtos` tem a coluna `subcategoria`, e nada a preenche.                                                           | Baixo. Coluna morta no esquema.                                 |
+| 6   | Os dados da loja ficam em `painel-estoque/src/config.js`, e não em variável de ambiente.                                      | Baixo. Precisa sair do código antes de qualquer publicação.     |
+| 7   | O `status_estoque` aceita texto livre no cadastro. A movimentação o sobrescreve com o valor derivado do saldo.                | Baixo. Um valor próprio não sobrevive à primeira movimentação.  |
+| 8   | O banco é um arquivo SQLite, sem cópia de segurança automática.                                                               | Médio em produção. Uma perda de arquivo é uma perda de estoque. |
 
 ## Licença
 

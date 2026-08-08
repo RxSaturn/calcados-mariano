@@ -19,4 +19,15 @@ const conexao = new sqlite3.Database(caminhoBanco, (erro) => {
     }
 });
 
+// O SQLite ignora chave estrangeira por padrão, em cada conexão. Sem este PRAGMA, o
+// ON DELETE CASCADE das tabelas estoque e movimentacoes não roda, e remover um produto
+// deixaria linhas órfãs apontando para um id que não existe mais.
+//
+// A chamada fica aqui, fora do callback de abertura, porque o driver enfileira os
+// comandos na ordem em que chegam. Assim o PRAGMA é o primeiro comando da conexão,
+// antes de qualquer consulta.
+conexao.run('PRAGMA foreign_keys = ON', (erro) => {
+    if (erro) console.error('Erro ao ligar as chaves estrangeiras:', erro.message);
+});
+
 module.exports = conexao;

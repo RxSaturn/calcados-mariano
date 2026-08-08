@@ -1,4 +1,8 @@
 const db = require('../config/db');
+const { executar, emTransacao } = require('./transacao');
+const EstoqueModel = require('./EstoqueModel');
+const MovimentacaoModel = require('./MovimentacaoModel');
+const { erroDeValidacao, erroNaoEncontrado } = require('./erros');
 
 // Tipos de busca aceitos. Cada tipo diz qual coluna consultar e se a comparação é exata.
 // Esta tabela é a única fonte dos nomes de coluna usados na consulta de busca.
@@ -48,6 +52,20 @@ const COLUNAS_GRAVAVEIS = [
     'nome_ordenacao'
 ];
 
+// Colunas que o PUT altera. É COLUNAS_GRAVAVEIS sem quantidade e sem status_estoque.
+//
+// O saldo saiu do caminho de edição de propósito. Ele muda só por movimentação, em
+// POST /produtos/:id/movimentacoes, senão uma correção à mão trocaria o número sem
+// deixar rastro e o histórico teria furo exatamente onde ele mais importa.
+const COLUNAS_EDITAVEIS = COLUNAS_GRAVAVEIS.filter(
+    (coluna) => coluna !== 'quantidade' && coluna !== 'status_estoque'
+);
+
+// Campos que o PUT recusa. O pedido responde 400 em vez de ignorar em silêncio: quem
+// mandou uma quantidade nova espera que ela valha, e um sucesso calado faria a pessoa
+// acreditar que o saldo mudou.
+const CAMPOS_RECUSADOS_NA_EDICAO = ['quantidade', 'status_estoque'];
+
 const temPropria = (objeto, chave) => Object.prototype.hasOwnProperty.call(objeto, chave);
 
 // Tira acento e passa para minúscula. Serve só para ordenar.
@@ -61,22 +79,6 @@ const chaveDeOrdenacao = (texto) =>
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
 
-// Marca o erro como falha de validação. O controller usa essa marca para responder 400.
-// A propriedade 'erros' carrega a lista completa, para o cliente corrigir tudo de uma vez.
-const erroDeValidacao = (mensagem, erros) => {
-    const erro = new Error(mensagem);
-    erro.validacao = true;
-    if (erros) erro.erros = erros;
-    return erro;
-};
-
-// Marca o erro como recurso ausente. O controller traduz para 404.
-const erroNaoEncontrado = (mensagem) => {
-    const erro = new Error(mensagem);
-    erro.naoEncontrado = true;
-    return erro;
-};
-
 // A vitrine põe este valor no atributo src de uma imagem. Sem esta checagem, um
 // 'javascript:...' gravado no campo viraria execução de script na página do cliente.
 const imagemUrlAceita = (valor) =>
@@ -86,7 +88,11 @@ const textoLimpo = (valor) => (typeof valor === 'string' ? valor.trim() : valor)
 
 // Confere um produto que chegou pelo POST ou pelo PUT.
 // Devolve a lista de problemas. Uma lista vazia significa que o produto pode ser gravado.
-const validarProduto = (produto) => {
+//
+// O POST e o PUT divergem no saldo, e só nisso. O POST pede quantidade, porque um
+// cadastro sem saldo de abertura não diz quantos pares a loja tem. O PUT recusa
+// quantidade, porque o saldo só muda por movimentação.
+const validarProduto = (produto, { comQuantidade = true } = {}) => {
     if (produto === null || typeof produto !== 'object' || Array.isArray(produto)) {
         return ['O corpo do pedido precisa ser um objeto JSON.'];
     }
@@ -109,10 +115,27 @@ const validarProduto = (produto) => {
         );
     }
 
-    if (!Number.isInteger(produto.quantidade)) {
-        erros.push('O campo "quantidade" é obrigatório e precisa ser um número inteiro.');
-    } else if (produto.quantidade < 0) {
-        erros.push('O campo "quantidade" não pode ser negativo.');
+    if (comQuantidade) {
+        if (!Number.isInteger(produto.quantidade)) {
+            erros.push('O campo "quantidade" é obrigatório e precisa ser um número inteiro.');
+        } else if (produto.quantidade < 0) {
+            erros.push('O campo "quantidade" não pode ser negativo.');
+        }
+
+        // A unidade que recebe o saldo de abertura. Sem ela, o saldo vai para a padrão.
+        if (produto.unidade !== undefined && !EstoqueModel.unidadeValida(produto.unidade)) {
+            erros.push(
+                `O campo "unidade" precisa ser um destes: ${EstoqueModel.UNIDADES.join(', ')}.`
+            );
+        }
+    } else {
+        for (const campo of CAMPOS_RECUSADOS_NA_EDICAO) {
+            if (temPropria(produto, campo)) {
+                erros.push(
+                    `O campo "${campo}" não muda por esta rota. Use POST /produtos/:id/movimentacoes.`
+                );
+            }
+        }
     }
 
     // Opcionais. Quando vêm, precisam ser texto dentro do limite.
@@ -140,8 +163,10 @@ const validarProduto = (produto) => {
     return erros;
 };
 
-// Monta os valores na ordem de COLUNAS_GRAVAVEIS, com trim e com o status derivado.
-const valoresParaGravar = (produto) => {
+// Monta um objeto de coluna para valor, com trim e com o status derivado. As duas
+// funções abaixo tiram daqui a lista na ordem que cada consulta precisa, portanto a
+// ordem dos valores nunca sai de sincronia com a lista de colunas.
+const valoresPorColuna = (produto) => {
     const quantidade = produto.quantidade;
     const status =
         typeof produto.status_estoque === 'string' && produto.status_estoque.trim() !== ''
@@ -155,19 +180,24 @@ const valoresParaGravar = (produto) => {
         return limpo === undefined || limpo === '' ? null : limpo;
     };
 
-    return [
-        produto.nome.trim(),
-        produto.numeracao.trim(),
-        produto.categoria.trim(),
-        produto.publico.trim(),
+    return {
+        nome: produto.nome.trim(),
+        numeracao: produto.numeracao.trim(),
+        categoria: produto.categoria.trim(),
+        publico: produto.publico.trim(),
         quantidade,
-        status,
-        opcional(produto.marca),
-        opcional(produto.cor),
-        opcional(produto.descricao),
-        opcional(produto.imagem_url),
-        chaveDeOrdenacao(produto.nome.trim())
-    ];
+        status_estoque: status,
+        marca: opcional(produto.marca),
+        cor: opcional(produto.cor),
+        descricao: opcional(produto.descricao),
+        imagem_url: opcional(produto.imagem_url),
+        nome_ordenacao: chaveDeOrdenacao(produto.nome.trim())
+    };
+};
+
+const valoresNaOrdem = (produto, colunas) => {
+    const valores = valoresPorColuna(produto);
+    return colunas.map((coluna) => valores[coluna]);
 };
 
 // Confere os parâmetros de listagem e devolve a consulta já montada.
@@ -286,6 +316,11 @@ const ProdutoModel = {
     },
 
     // 3. Adiciona um produto, cobrindo as colunas todas.
+    //
+    // O cadastro abre o saldo na mesma transação: cria a linha de estoque de cada
+    // unidade e grava a movimentação de entrada. Sem isso, o produto nasceria com
+    // produtos.quantidade preenchida e nenhum saldo por unidade, e o painel mostraria
+    // um total que nenhuma loja tem.
     adicionar: (produto, callback) => {
         // A validação vem antes do banco. Sem ela, o controller repassava req.body direto
         // e qualquer pedido gravava uma linha, inclusive com campos nulos ou tipos errados.
@@ -297,28 +332,59 @@ const ProdutoModel = {
         const marcadores = COLUNAS_GRAVAVEIS.map(() => '?').join(', ');
         const sql = `INSERT INTO produtos (${COLUNAS_GRAVAVEIS.join(', ')}) VALUES (${marcadores})`;
 
-        // db.run usado para modificar o banco (inserir, atualizar, apagar)
-        db.run(sql, valoresParaGravar(produto), function (erro) {
-            if (erro) return callback(erro);
-            callback(null, { id: this.lastID });
-        });
+        const unidade =
+            produto.unidade === undefined
+                ? EstoqueModel.UNIDADE_PADRAO
+                : String(produto.unidade).trim();
+        const quantidade = produto.quantidade;
+
+        emTransacao(async () => {
+            const { lastID } = await executar(sql, valoresNaOrdem(produto, COLUNAS_GRAVAVEIS));
+
+            await EstoqueModel.garantirLinhas(lastID);
+
+            // Um cadastro com saldo zero não gera movimentação, porque nada entrou.
+            if (quantidade > 0) {
+                await EstoqueModel.aplicarDelta(lastID, unidade, quantidade);
+                await executar(
+                    `INSERT INTO movimentacoes (produto_id, unidade, tipo, quantidade, motivo, criado_em)
+                     VALUES (?, ?, 'entrada', ?, ?, ?)`,
+                    [
+                        lastID,
+                        unidade,
+                        quantidade,
+                        MovimentacaoModel.MOTIVO_CADASTRO,
+                        new Date().toISOString()
+                    ]
+                );
+            }
+
+            // O total não é recalculado aqui de propósito. O INSERT já gravou o mesmo
+            // número em produtos.quantidade, e recalcular apagaria um status_estoque
+            // que o cliente tenha enviado no cadastro.
+            return { id: lastID };
+        })
+            .then((resultado) => callback(null, resultado))
+            .catch(callback);
     },
 
-    // 4. Substitui um produto inteiro. O painel usa isto para corrigir um cadastro.
+    // 4. Substitui os atributos do produto. O painel usa isto para corrigir um cadastro.
+    //
+    // Esta rota NÃO altera a quantidade nem o status. Ver COLUNAS_EDITAVEIS.
     atualizar: (id, produto, callback) => {
         if (!idValido(id)) {
             return callback(erroDeValidacao('O id precisa ser um número inteiro a partir de 1.'));
         }
 
-        const erros = validarProduto(produto);
+        const erros = validarProduto(produto, { comQuantidade: false });
         if (erros.length > 0) {
             return callback(erroDeValidacao('O produto enviado não passou na validação.', erros));
         }
 
-        const atribuicoes = COLUNAS_GRAVAVEIS.map((coluna) => `${coluna} = ?`).join(', ');
+        const atribuicoes = COLUNAS_EDITAVEIS.map((coluna) => `${coluna} = ?`).join(', ');
         const sql = `UPDATE produtos SET ${atribuicoes} WHERE id = ?`;
 
-        db.run(sql, [...valoresParaGravar(produto), Number(id)], function (erro) {
+        db.run(sql, [...valoresNaOrdem(produto, COLUNAS_EDITAVEIS), Number(id)], function (erro) {
             if (erro) return callback(erro);
             if (this.changes === 0) return callback(erroNaoEncontrado('Produto não encontrado.'));
             callback(null, { id: Number(id) });

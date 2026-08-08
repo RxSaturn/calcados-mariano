@@ -1,4 +1,6 @@
 const ProdutoModel = require('../models/ProdutoModel');
+const EstoqueModel = require('../models/EstoqueModel');
+const MovimentacaoModel = require('../models/MovimentacaoModel');
 
 // Traduz o erro do model para a resposta HTTP.
 //
@@ -62,7 +64,10 @@ const ProdutoController = {
         });
     },
 
-    // PUT /produtos/:id. Substitui o produto inteiro.
+    // PUT /produtos/:id. Substitui os atributos do produto.
+    //
+    // A quantidade não passa por aqui. Um corpo que traga "quantidade" recebe 400, com
+    // a rota certa na mensagem, em vez de um 200 que não mudaria o saldo.
     atualizarProduto: (req, res) => {
         ProdutoModel.atualizar(req.params.id, req.body, (erro, alterado) => {
             if (erro) return responderErro(res, erro, 'Erro ao atualizar o produto.');
@@ -85,6 +90,40 @@ const ProdutoController = {
             // Antes desta checagem, um pedido sem 'tipo' derrubava o servidor.
             if (erro) return responderErro(res, erro, 'Erro ao pesquisar os produtos.');
             return res.status(200).json(resultados);
+        });
+    },
+
+    // GET /produtos/:id/estoque. Saldo de cada unidade e o total.
+    // Fica atrás de sessão: onde cada par está é dado de operação da loja, e a vitrine
+    // mostra ao cliente apenas o total, que já vem em produtos.quantidade.
+    mostrarEstoque: (req, res) => {
+        if (!/^[1-9][0-9]*$/.test(String(req.params.id))) {
+            return res.status(400).json({ mensagem: 'O id precisa ser um número inteiro.' });
+        }
+
+        EstoqueModel.porProduto(req.params.id)
+            .then((saldo) => res.status(200).json(saldo))
+            .catch((erro) => responderErro(res, erro, 'Erro ao buscar o estoque do produto.'));
+    },
+
+    // POST /produtos/:id/movimentacoes. A única porta por onde o saldo muda.
+    registrarMovimentacao: (req, res) => {
+        MovimentacaoModel.registrar(req.params.id, req.body, (erro, movimentacao) => {
+            if (erro) return responderErro(res, erro, 'Erro ao registrar a movimentação.');
+            return res.status(201).json({
+                mensagem: 'Movimentação registrada.',
+                ...movimentacao
+            });
+        });
+    },
+
+    // GET /produtos/:id/movimentacoes. Histórico, do mais recente para o mais antigo.
+    listarMovimentacoes: (req, res) => {
+        const filtros = { pagina: req.query.pagina, limite: req.query.limite };
+
+        MovimentacaoModel.listar(req.params.id, filtros, (erro, resultado) => {
+            if (erro) return responderErro(res, erro, 'Erro ao buscar o histórico.');
+            return res.status(200).json(resultado);
         });
     }
 };
