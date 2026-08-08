@@ -397,7 +397,6 @@ Os dados da loja saíram do componente e foram para `painel-estoque/src/config.j
 
 **Como.**
 
-1. Crie `CONTRIBUTING.md` com o processo de branch, commit e pull request.
 2. Crie `CHANGELOG.md` no formato Keep a Changelog.
 3. Crie os modelos de issue e de pull request em `.github/`.
 4. Ative o Dependabot. O `npm audit` do frontend aponta uma falha de severidade alta em `brace-expansion`.
@@ -408,8 +407,6 @@ Os dados da loja saíram do componente e foram para `painel-estoque/src/config.j
 O `SECURITY.md` fica fora desta lista. Ele serve para receber relatos de falhas de fora do time, e o repositório continua privado.
 
 **Pronto quando.** O `index.html` declara português. Nenhum nome de concorrente aparece no código. O GitHub mostra os modelos de issue e de pull request.
-
-**Resultado.** Foram criados `CONTRIBUTING.md`, `CHANGELOG.md`, `.github/pull_request_template.md`, dois modelos de issue e `.github/dependabot.yml`. O `index.html` declara `lang="pt-BR"` e tem título próprio. A variável `--vermelho-netshoes` passou a se chamar `--vermelho-marca`.
 
 A pasta `vitrine-frontend/` passou a se chamar `painel-estoque/`, junto com o nome do pacote. O nome antigo descrevia uma vitrine pública.
 

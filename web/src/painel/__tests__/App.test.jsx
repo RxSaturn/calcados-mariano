@@ -2,12 +2,12 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import App from '../App';
-import * as api from '../api/produtos';
+import App from '../Painel';
+import * as api from '../../api/produtos';
 
 // O módulo da API é substituído por mocks. Estes testes conferem a tela, e não a API.
 // A API tem os seus próprios testes de integração em tests/produtos.test.js, na raiz.
-vi.mock('../api/produtos');
+vi.mock('../../api/produtos');
 
 const PRODUTOS = [
   {
@@ -42,6 +42,9 @@ const envelope = (produtos) => ({
 beforeEach(() => {
   vi.resetAllMocks();
   api.listarProdutos.mockResolvedValue(envelope(PRODUTOS));
+  // O painel só monta com sessão ativa. Sem isto, todos os testes daqui veriam
+  // o formulário de login, e não a tela que eles querem conferir.
+  api.obterSessao.mockResolvedValue({ autenticado: true });
 });
 
 describe('App', () => {

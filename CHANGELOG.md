@@ -5,6 +5,43 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Entrega na máquina da loja
+
+- `npm run instalar`: um comando do zero até o sistema no ar. Ele pede a senha do
+  painel sem mostrá-la na tela, e sem essa senha o sistema não fica utilizável.
+- O servidor passou a entregar as duas telas e a API na mesma porta. Antes eram
+  dois terminais, com o front no servidor de desenvolvimento do Vite.
+- `npm run backup`: cópia do banco, conferida por dentro antes de ser guardada.
+  Restaurar é trocar o arquivo.
+- Atalhos de dois cliques para Windows, em `deploy/`.
+
+### Vitrine
+
+- Trazida do repositório original, com o trabalho de GabsSR preservado no
+  histórico, e ligada à API de verdade.
+- Filtro por público feito pelo servidor, com igualdade, no lugar da adivinhação
+  sobre o texto da categoria.
+- Saíram as afirmações de "Compra 100% Segura", "SSL" e "dados protegidos". A
+  vitrine não vende, não cobra e não coleta dado nenhum.
+
+### Painel
+
+- Tela de login. A API já exigia sessão para escrever, e a tela nunca pedia
+  senha: na prática o painel não cadastrava nada.
+- Editar e remover produto, com confirmação na própria linha.
+- 401 e 503 passaram a dizer coisas diferentes: senha errada e sistema sem senha
+  configurada não são o mesmo problema.
+
+### Corrigido
+
+- **Ninguém carregava o arquivo `.env`.** O código lia as variáveis, o
+  `.env.example` mandava criar o arquivo, e faltava a peça do meio. Quem seguisse
+  o roteiro terminava com o login respondendo 503.
+
+### Testes
+
+- 100 no servidor e 42 nas telas.
+
 ### Adicionado
 
 - Painel de estoque em React. A tela lê o estoque da API, filtra por nome, categoria ou numeração, cadastra produto e destaca as linhas com quantidade baixa.
@@ -14,7 +51,6 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 - `db/schema.sql`, `db/seed.sql` e o comando `npm run db:setup`, que criam o banco.
 - Validação de entrada em `POST /produtos`, com a lista completa de erros na resposta.
 - Configuração por ambiente: `PORT`, `DB_PATH` e `CORS_ORIGINS`, documentadas em `.env.example`.
-- Documentação: `README.md`, `docs/ROADMAP.md`, `CONTRIBUTING.md` e este arquivo.
 - ESLint e Prettier no backend, `.editorconfig` e `.nvmrc`.
 
 ### Modificado

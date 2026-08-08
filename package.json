@@ -9,9 +9,11 @@
     "node": ">=22"
   },
   "scripts": {
+    "instalar": "node scripts/instalar.js",
     "start": "node server.js",
     "dev": "node --watch server.js",
     "db:setup": "node db/setup.js",
+    "backup": "node scripts/backup.js",
     "auth:hash": "node db/hash-senha.js",
     "test": "vitest run",
     "test:watch": "vitest",

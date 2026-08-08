@@ -145,3 +145,9 @@ dist
 *.db-journal
 *.sqlite
 *.sqlite3
+
+# Front compilado. Gerado por `npm run build --prefix web`.
+web/dist/
+
+# Cópias de segurança do banco, geradas por `npm run backup`.
+backups/
